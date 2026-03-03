@@ -1,0 +1,51 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import LoginView from '../views/LoginView.vue'
+import RegisterView from '../views/RegisterView.vue'
+import DashboardView from '../views/DashboardView.vue'
+import InstancesView from '../views/InstancesView.vue'
+import InstanceDetailView from '../views/InstanceDetailView.vue'
+import NewInstanceView from '../views/NewInstanceView.vue'
+import AdminDashboardView from '../views/admin/AdminDashboardView.vue'
+import AdminNodesView from '../views/admin/AdminNodesView.vue'
+import AdminNodeDetailView from '../views/admin/AdminNodeDetailView.vue'
+import AdminCreateNodeView from '../views/admin/AdminCreateNodeView.vue'
+import { getToken, getRole } from '../api/auth'
+
+const routes = [
+  { path: '/', redirect: '/dashboard' },
+  { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
+  { path: '/register', name: 'register', component: RegisterView, meta: { guest: true } },
+  { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { auth: true } },
+  { path: '/instances', name: 'instances', component: InstancesView, meta: { auth: true } },
+  { path: '/instances/new', name: 'new-instance', component: NewInstanceView, meta: { auth: true } },
+  { path: '/instances/:id', name: 'instance-detail', component: InstanceDetailView, meta: { auth: true } },
+
+  // Admin routes
+  { path: '/admin', name: 'admin-dashboard', component: AdminDashboardView, meta: { auth: true, admin: true } },
+  { path: '/admin/nodes', name: 'admin-nodes', component: AdminNodesView, meta: { auth: true, admin: true } },
+  { path: '/admin/nodes/new', name: 'admin-create-node', component: AdminCreateNodeView, meta: { auth: true, admin: true } },
+  { path: '/admin/nodes/:id', name: 'admin-node-detail', component: AdminNodeDetailView, meta: { auth: true, admin: true } }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+router.beforeEach((to, from, next) => {
+  const token = getToken()
+  const role = getRole()
+
+  if (to.meta.auth && !token) {
+    return next('/login')
+  }
+  if (to.meta.guest && token) {
+    return next(role === 'admin' ? '/admin' : '/dashboard')
+  }
+  if (to.meta.admin && role !== 'admin') {
+    return next('/dashboard')
+  }
+  next()
+})
+
+export default router
