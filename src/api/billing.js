@@ -38,10 +38,22 @@ async function request(method, path, body = null, auth = true) {
   return data
 }
 
-// ---- Location & Node API (public, no JWT) ----
+// ---- Products API (public, returns enabled/on-sale products) ----
 
-export async function listLocations() {
-  const res = await request('GET', '/api/v1/locations', null, false)
+export async function listProducts() {
+  const res = await request('GET', '/api/v1/products', null, false)
+  return res.data || []
+}
+
+export async function getProduct(id) {
+  const res = await request('GET', `/api/v1/products/${id}`, null, false)
+  return res.data
+}
+
+// ---- Region & Node API (public, no JWT) ----
+
+export async function listRegions() {
+  const res = await request('GET', '/api/v1/regions', null, false)
   return res.data || []
 }
 

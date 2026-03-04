@@ -8,6 +8,7 @@ import {
   listIPs,
   addIP,
   enqueueTask,
+  listAllProducts,
   formatPercent,
   formatDateTime
 } from '../../api/admin'
@@ -18,6 +19,7 @@ const nodeID = route.params.id
 
 const node = ref(null)
 const ips = ref([])
+const products = ref([])
 const loading = ref(true)
 const error = ref('')
 
@@ -57,6 +59,14 @@ async function fetchAll() {
     ])
     node.value = n
     ips.value = ipList
+
+    // Fetch products matching this node's location
+    try {
+      const allProducts = await listAllProducts()
+      products.value = allProducts.filter(p => p.location === n.location)
+    } catch (e) {
+      console.error('Failed to load products for node', e)
+    }
   } catch (err) {
     error.value = err.message
   } finally {
@@ -107,6 +117,19 @@ async function handleEnqueueTask() {
 }
 
 const taskTypes = ['provision', 'deprovision', 'start', 'stop', 'reboot', 'suspend', 'unsuspend']
+
+function formatPrice(amount, currency) {
+  return `${currency.toUpperCase()} ${(amount / 100).toFixed(2)}`
+}
+
+function formatCycle(cycle) {
+  const map = { monthly: '/mo', quarterly: '/qtr', annually: '/yr' }
+  return map[cycle] || `/${cycle}`
+}
+
+function goToProduct(id) {
+  router.push(`/admin/products/${id}`)
+}
 </script>
 
 <template>
@@ -225,6 +248,46 @@ const taskTypes = ['provision', 'deprovision', 'start', 'stop', 'reboot', 'suspe
               </tr>
             </tbody>
           </table>
+        </section>
+
+        <!-- Products for this location -->
+        <section class="products-section glass-card">
+          <div class="section-header">
+            <h2>Products — {{ node.location }} ({{ products.length }})</h2>
+            <router-link to="/admin/products/new" class="action-btn accent-btn small-btn">+ New Product</router-link>
+          </div>
+
+          <div v-if="products.length === 0" class="empty-inline">No products configured for this location.</div>
+
+          <div v-else class="node-product-list">
+            <div
+              v-for="p in products"
+              :key="p.id"
+              class="node-product-card"
+              @click="goToProduct(p.id)"
+            >
+              <div class="np-top">
+                <div class="np-name-col">
+                  <span class="np-name">{{ p.name }}</span>
+                  <span class="np-slug">{{ p.slug }}</span>
+                </div>
+                <span class="status-badge" :class="p.enabled ? 'enabled' : 'disabled'">
+                  {{ p.enabled ? 'On Sale' : 'Disabled' }}
+                </span>
+              </div>
+              <div class="np-specs">
+                <span>{{ p.cpu }} vCPU</span>
+                <span>{{ p.memory_mb >= 1024 ? (p.memory_mb / 1024) + ' GB' : p.memory_mb + ' MB' }} RAM</span>
+                <span>{{ p.disk_gb }} GB Disk</span>
+              </div>
+              <div class="np-bottom">
+                <span class="np-price">{{ formatPrice(p.price_amount, p.currency) }}{{ formatCycle(p.billing_cycle) }}</span>
+                <span class="np-stock">
+                  <span class="np-stock-avail">{{ p.available_slots }}</span> / {{ p.total_slots }} slots
+                </span>
+              </div>
+            </div>
+          </div>
         </section>
 
         <!-- Enqueue Task -->
@@ -573,4 +636,96 @@ const taskTypes = ['provision', 'deprovision', 'start', 'stop', 'reboot', 'suspe
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Products Section */
+.products-section {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.node-product-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.75rem;
+}
+
+.node-product-card {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.node-product-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+.np-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.6rem;
+}
+
+.np-name-col { display: flex; flex-direction: column; gap: 0.1rem; }
+.np-name { font-weight: 700; color: #fff; font-size: 0.95rem; }
+.np-slug { font-size: 0.72rem; color: rgba(255, 255, 255, 0.4); font-family: monospace; }
+
+.status-badge {
+  display: inline-flex;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.status-badge.enabled {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.status-badge.disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.np-specs {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 0.6rem;
+}
+
+.np-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.np-price {
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f87171, #fb923c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.np-stock {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.np-stock-avail {
+  font-weight: 700;
+  color: #4ade80;
+}
 </style>

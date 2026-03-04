@@ -9,6 +9,9 @@ import AdminDashboardView from '../views/admin/AdminDashboardView.vue'
 import AdminNodesView from '../views/admin/AdminNodesView.vue'
 import AdminNodeDetailView from '../views/admin/AdminNodeDetailView.vue'
 import AdminCreateNodeView from '../views/admin/AdminCreateNodeView.vue'
+import AdminProductsView from '../views/admin/AdminProductsView.vue'
+import AdminCreateProductView from '../views/admin/AdminCreateProductView.vue'
+import AdminProductDetailView from '../views/admin/AdminProductDetailView.vue'
 import { getToken, getRole } from '../api/auth'
 
 const routes = [
@@ -24,7 +27,12 @@ const routes = [
   { path: '/admin', name: 'admin-dashboard', component: AdminDashboardView, meta: { auth: true, admin: true } },
   { path: '/admin/nodes', name: 'admin-nodes', component: AdminNodesView, meta: { auth: true, admin: true } },
   { path: '/admin/nodes/new', name: 'admin-create-node', component: AdminCreateNodeView, meta: { auth: true, admin: true } },
-  { path: '/admin/nodes/:id', name: 'admin-node-detail', component: AdminNodeDetailView, meta: { auth: true, admin: true } }
+  { path: '/admin/nodes/:id', name: 'admin-node-detail', component: AdminNodeDetailView, meta: { auth: true, admin: true } },
+
+  // Admin product routes
+  { path: '/admin/products', name: 'admin-products', component: AdminProductsView, meta: { auth: true, admin: true } },
+  { path: '/admin/products/new', name: 'admin-create-product', component: AdminCreateProductView, meta: { auth: true, admin: true } },
+  { path: '/admin/products/:id', name: 'admin-product-detail', component: AdminProductDetailView, meta: { auth: true, admin: true } }
 ]
 
 const router = createRouter({

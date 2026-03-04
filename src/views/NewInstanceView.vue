@@ -3,7 +3,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import {
-  listLocations,
+  listProducts,
+  listRegions,
   listNodes,
   createOrder,
   purchaseInstance
@@ -12,52 +13,155 @@ import {
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
-const step = ref(1) // 1: pick plan, 2: configure, 3: deploying
+const step = ref(1) // 1: pick location, 2: pick specs, 3: configure & deploy
 
 const form = reactive({
   hostname: '',
-  plan: '',
   os: 'ubuntu-22.04',
-  currency: 'usd',
-  locationCode: '',
-  nodeID: ''
+  currency: 'usd'
 })
 
 // Backend data
-const locations = ref([])
-const nodes = ref([])
-const locationsLoading = ref(true)
-const nodesLoading = ref(false)
+const products = ref([])
+const productsLoading = ref(true)
+const productsError = ref('')
+
+const regions = ref([])
+const regionsLoading = ref(true)
+const regionsError = ref('')
+
+const selectedLocation = ref(null)
+const selectedProduct = ref(null)
+
+// Auto-resolved node for the selected product's location
+const resolvedNodeID = ref('')
+const nodeResolving = ref(false)
+const nodeError = ref('')
 
 onMounted(async () => {
-  try {
-    locations.value = await listLocations()
-  } catch {
-    locations.value = []
-  } finally {
-    locationsLoading.value = false
+  // Load regions and products in parallel
+  const [regionsResult, productsResult] = await Promise.allSettled([
+    listRegions(),
+    listProducts()
+  ])
+
+  if (regionsResult.status === 'fulfilled') {
+    regions.value = regionsResult.value
+  } else {
+    regionsError.value = regionsResult.reason?.message || 'Failed to load regions'
+    regions.value = []
   }
+  regionsLoading.value = false
+
+  if (productsResult.status === 'fulfilled') {
+    products.value = productsResult.value
+  } else {
+    productsError.value = productsResult.reason?.message || 'Failed to load products'
+    products.value = []
+  }
+  productsLoading.value = false
 })
 
-async function onLocationChange() {
-  form.nodeID = ''
-  nodes.value = []
-  if (!form.locationCode) return
-  nodesLoading.value = true
+// ── Computed: build a lookup map from regions by code ──
+
+const regionByCode = computed(() => {
+  const map = {}
+  for (const r of regions.value) {
+    map[r.code] = r
+  }
+  return map
+})
+
+// ── Computed: group products by region ──
+
+const locationGroups = computed(() => {
+  const map = {}
+  for (const p of products.value) {
+    const loc = p.location || 'Unknown'
+    if (!map[loc]) {
+      map[loc] = { location: loc, products: [], minPrice: Infinity, minCurrency: '', minCycle: '' }
+    }
+    map[loc].products.push(p)
+    if (p.price_amount < map[loc].minPrice) {
+      map[loc].minPrice = p.price_amount
+      map[loc].minCurrency = p.currency
+      map[loc].minCycle = p.billing_cycle
+    }
+  }
+  // Only show groups that have a matching active region (or keep unknown for fallback)
+  return Object.values(map).sort((a, b) => a.location.localeCompare(b.location))
+})
+
+const locationProducts = computed(() => {
+  if (!selectedLocation.value) return []
+  const group = locationGroups.value.find(g => g.location === selectedLocation.value)
+  return group ? group.products : []
+})
+
+// ── Location display helpers (dynamic from regions API) ──
+
+function locationDisplay(code) {
+  const region = regionByCode.value[code]
+  if (region) {
+    // Parse name like "Frankfurt, Germany" into city + country
+    const parts = region.name.split(',')
+    const city = parts[0]?.trim() || region.name
+    const country = parts.slice(1).join(',').trim() || ''
+    return { city, country, flag: region.flag_icon || '📍' }
+  }
+  return { city: code, country: '', flag: '📍' }
+}
+
+// ── Selection handlers ──
+
+async function selectLocation(loc) {
+  selectedLocation.value = loc
+  selectedProduct.value = null
+  resolvedNodeID.value = ''
+  nodeError.value = ''
+  step.value = 2
+}
+
+async function selectSpec(product) {
+  selectedProduct.value = product
+  step.value = 3
+
+  // Auto-resolve a node for this product's location
+  resolvedNodeID.value = ''
+  nodeError.value = ''
+  nodeResolving.value = true
   try {
-    const all = await listNodes(form.locationCode)
-    // Only show nodes that have capacity
-    nodes.value = all.filter(n => n.enabled && n.available_slots > 0)
-    // Auto-select first available node
-    if (nodes.value.length > 0) {
-      form.nodeID = nodes.value[0].id
+    const all = await listNodes(product.location)
+    // available_slots === 0 means unlimited; > 0 means remaining capacity
+    const available = all.filter(n => n.enabled && (n.total_slots === -1 || n.available_slots > 0))
+    if (available.length > 0) {
+      resolvedNodeID.value = available[0].id
+    } else {
+      nodeError.value = 'No available nodes in this location. Please try another location.'
     }
   } catch {
-    nodes.value = []
+    nodeError.value = 'Failed to resolve node. Please try again.'
   } finally {
-    nodesLoading.value = false
+    nodeResolving.value = false
   }
 }
+
+function goBackToLocations() {
+  selectedLocation.value = null
+  selectedProduct.value = null
+  resolvedNodeID.value = ''
+  nodeError.value = ''
+  step.value = 1
+}
+
+function goBackToSpecs() {
+  selectedProduct.value = null
+  resolvedNodeID.value = ''
+  nodeError.value = ''
+  step.value = 2
+}
+
+// ── Static data ──
 
 const osList = [
   { value: 'ubuntu-22.04', label: 'Ubuntu 22.04 LTS' },
@@ -76,73 +180,69 @@ const currencies = [
   { value: 'twd', label: 'TWD — New Taiwan Dollar' }
 ]
 
-// VPS presets
-const presets = [
-  { name: 'VPS Starter', plan: 'vps-starter', cpu: 1, memoryMB: 1024, diskGB: 25, price: 500 },
-  { name: 'VPS Basic', plan: 'vps-basic', cpu: 1, memoryMB: 2048, diskGB: 50, price: 1000 },
-  { name: 'VPS Standard', plan: 'vps-standard', cpu: 2, memoryMB: 4096, diskGB: 80, price: 2000 },
-  { name: 'VPS Pro', plan: 'vps-pro', cpu: 4, memoryMB: 8192, diskGB: 160, price: 4000 },
-  { name: 'VPS Enterprise', plan: 'vps-enterprise', cpu: 8, memoryMB: 16384, diskGB: 320, price: 8000 },
-  { name: 'VPS Ultimate', plan: 'vps-ultimate', cpu: 16, memoryMB: 32768, diskGB: 640, price: 16000 }
-]
+// ── Formatting helpers ──
 
-const selectedPreset = ref(null)
-
-function selectPreset(preset) {
-  selectedPreset.value = preset
-  form.plan = preset.plan
+function formatMemory(mb) {
+  return mb >= 1024 ? `${mb / 1024} GB` : `${mb} MB`
 }
 
-function specLabel(preset) {
-  const mem = preset.memoryMB >= 1024 ? `${preset.memoryMB / 1024}GB` : `${preset.memoryMB}MB`
-  return `${preset.cpu} vCPU / ${mem} RAM / ${preset.diskGB}GB SSD`
+function specLabel(product) {
+  return `${product.cpu} vCPU / ${formatMemory(product.memory_mb)} RAM / ${product.disk_gb} GB SSD`
 }
 
-function formatPrice(cents) {
-  return `$${(cents / 100).toFixed(2)}`
+function formatPrice(cents, currency) {
+  const sym = { USD: '$', EUR: '€', GBP: '£' }
+  const prefix = sym[currency?.toUpperCase()] || currency + ' '
+  return `${prefix}${(cents / 100).toFixed(2)}`
 }
+
+function formatCycleShort(cycle) {
+  const map = { monthly: '/mo', quarterly: '/qtr', annually: '/yr' }
+  return map[cycle] || `/${cycle}`
+}
+
+// ── Submit ──
 
 const canSubmit = computed(() => {
-  return form.hostname && selectedPreset.value && form.locationCode && form.nodeID && form.os && form.currency
+  return form.hostname && selectedProduct.value && resolvedNodeID.value && form.os && form.currency && !nodeResolving.value
 })
 
 async function handleSubmit() {
   if (!canSubmit.value) return
   error.value = ''
   loading.value = true
-  step.value = 3
+  const prevStep = step.value
+  step.value = 4 // deploying overlay
   try {
-    const preset = selectedPreset.value
+    const product = selectedProduct.value
 
-    // Step 1: create order
     const order = await createOrder({
       currency: form.currency,
-      priceAmount: preset.price,
+      priceAmount: product.price_amount,
       hostname: form.hostname,
-      plan: preset.plan,
-      region: form.locationCode,
+      plan: product.slug,
+      region: product.location,
       os: form.os,
-      cpu: preset.cpu,
-      memoryMB: preset.memoryMB,
-      diskGB: preset.diskGB
+      cpu: product.cpu,
+      memoryMB: product.memory_mb,
+      diskGB: product.disk_gb
     })
 
-    // Step 2: purchase instance with the order
     const instance = await purchaseInstance({
       orderID: order.id,
-      nodeID: form.nodeID,
+      nodeID: resolvedNodeID.value,
       hostname: form.hostname,
-      plan: preset.plan,
+      plan: product.slug,
       os: form.os,
-      cpu: preset.cpu,
-      memoryMB: preset.memoryMB,
-      diskGB: preset.diskGB
+      cpu: product.cpu,
+      memoryMB: product.memory_mb,
+      diskGB: product.disk_gb
     })
 
     router.push(`/instances/${instance.id}`)
   } catch (err) {
     error.value = err.message
-    step.value = 2
+    step.value = prevStep
   } finally {
     loading.value = false
   }
@@ -157,127 +257,191 @@ async function handleSubmit() {
         <p class="page-subtitle">Deploy a new VPS instance</p>
       </header>
 
-      <!-- Step 1: Choose Plan -->
-      <section class="section glass-card" :class="{ dimmed: step > 1 && step < 3 }">
-        <div class="section-head">
-          <span class="step-num">1</span>
-          <h2>Choose a Plan</h2>
-        </div>
-        <div class="plan-grid">
-          <div
-            v-for="preset in presets"
-            :key="preset.plan"
-            class="plan-card"
-            :class="{ selected: selectedPreset?.plan === preset.plan }"
-            @click="selectPreset(preset); step = 2"
-          >
-            <div class="plan-name">{{ preset.name }}</div>
-            <div class="plan-specs">{{ specLabel(preset) }}</div>
-            <div class="plan-price">{{ formatPrice(preset.price) }}<span class="per-mo">/mo</span></div>
-          </div>
-        </div>
-      </section>
+      <!-- Loading -->
+      <div v-if="productsLoading || regionsLoading" class="glass-card products-loading">
+        <div class="spinner"></div>
+        <span>Loading available plans...</span>
+      </div>
 
-      <!-- Step 2: Configure -->
-      <section v-if="step >= 2" class="section glass-card">
-        <div class="section-head">
-          <span class="step-num">2</span>
-          <h2>Configure Your Instance</h2>
-        </div>
+      <!-- Error -->
+      <div v-else-if="productsError || regionsError" class="glass-card products-error">
+        <p>{{ productsError || regionsError }}</p>
+        <button class="action-btn secondary-btn small-btn" @click="productsLoading = true; regionsLoading = true; Promise.allSettled([listRegions(), listProducts()]).then(([r, p]) => { if (r.status === 'fulfilled') { regions = r.value; regionsError = '' } else { regionsError = r.reason?.message } if (p.status === 'fulfilled') { products = p.value; productsError = '' } else { productsError = p.reason?.message } }).finally(() => { productsLoading = false; regionsLoading = false })">Retry</button>
+      </div>
 
-        <div v-if="error" class="form-error">{{ error }}</div>
+      <!-- No products -->
+      <div v-else-if="products.length === 0" class="glass-card products-empty">
+        <span class="empty-icon">◇</span>
+        <p>No plans are currently available. Check back later.</p>
+      </div>
 
-        <form class="config-form" @submit.prevent="handleSubmit">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Hostname</label>
-              <input v-model="form.hostname" type="text" placeholder="e.g. web-prod-01" required />
-            </div>
-            <div class="form-group">
-              <label>Operating System</label>
-              <select v-model="form.os" required>
-                <option v-for="os in osList" :key="os.value" :value="os.value">{{ os.label }}</option>
-              </select>
-            </div>
+      <!-- Main flow -->
+      <template v-else>
+
+        <!-- ─── Step 1: Choose Location ─── -->
+        <section class="section glass-card" :class="{ dimmed: step > 1 && step < 4 }">
+          <div class="section-head">
+            <span class="step-num" :class="{ done: step > 1 }">{{ step > 1 ? '✓' : '1' }}</span>
+            <h2>Choose a Location</h2>
+            <button v-if="step > 1" class="change-btn" @click="goBackToLocations">Change</button>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label>Location</label>
-              <div v-if="locationsLoading" class="field-loading">Loading locations...</div>
-              <select v-else v-model="form.locationCode" required @change="onLocationChange">
-                <option value="" disabled>Select a location</option>
-                <option
-                  v-for="loc in locations"
-                  :key="loc.location"
-                  :value="loc.location"
-                  :disabled="loc.available_slots === 0"
-                >
-                  {{ loc.location }} — {{ loc.available_slots }} slots available
-                </option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Node</label>
-              <div v-if="nodesLoading" class="field-loading">Loading nodes...</div>
-              <select v-else v-model="form.nodeID" required :disabled="nodes.length === 0">
-                <option value="" disabled>{{ form.locationCode ? 'Select a node' : 'Pick location first' }}</option>
-                <option v-for="node in nodes" :key="node.id" :value="node.id">
-                  {{ node.name }} ({{ node.code }}) — {{ node.available_slots }} free
-                </option>
-              </select>
-            </div>
+          <!-- Selected location pill (collapsed) -->
+          <div v-if="step > 1 && selectedLocation" class="chosen-pill">
+            <span class="chosen-flag">{{ locationDisplay(selectedLocation).flag }}</span>
+            <span class="chosen-label">{{ locationDisplay(selectedLocation).city }}</span>
+            <span class="chosen-code">{{ selectedLocation }}</span>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label>Currency</label>
-              <select v-model="form.currency" required>
-                <option v-for="c in currencies" :key="c.value" :value="c.value">{{ c.label }}</option>
-              </select>
-            </div>
-            <div class="form-group"></div>
-          </div>
-
-          <!-- Summary -->
-          <div v-if="selectedPreset" class="summary-card">
-            <h3>Instance Summary</h3>
-            <div class="summary-grid">
-              <div class="summary-row">
-                <span class="summary-label">Plan</span>
-                <span class="summary-value">{{ selectedPreset.name }}</span>
+          <!-- Location cards -->
+          <div v-if="step === 1" class="location-grid">
+            <div
+              v-for="group in locationGroups"
+              :key="group.location"
+              class="location-card"
+              @click="selectLocation(group.location)"
+            >
+              <div class="loc-flag">{{ locationDisplay(group.location).flag }}</div>
+              <div class="loc-info">
+                <div class="loc-city">{{ locationDisplay(group.location).city }}</div>
+                <div class="loc-country">{{ locationDisplay(group.location).country }}</div>
               </div>
-              <div class="summary-row">
-                <span class="summary-label">Specs</span>
-                <span class="summary-value">{{ specLabel(selectedPreset) }}</span>
-              </div>
-              <div class="summary-row">
-                <span class="summary-label">Hostname</span>
-                <span class="summary-value mono">{{ form.hostname || '—' }}</span>
-              </div>
-              <div class="summary-row">
-                <span class="summary-label">OS</span>
-                <span class="summary-value">{{ osList.find(o => o.value === form.os)?.label || form.os }}</span>
-              </div>
-              <div class="summary-row">
-                <span class="summary-label">Location</span>
-                <span class="summary-value">{{ form.locationCode || '—' }}</span>
-              </div>
-              <div class="summary-row total-row">
-                <span class="summary-label">Monthly</span>
-                <span class="summary-value price">{{ formatPrice(selectedPreset.price) }}/mo</span>
+              <div class="loc-meta">
+                <span class="loc-plans">{{ group.products.length }} {{ group.products.length === 1 ? 'plan' : 'plans' }}</span>
+                <span class="loc-from">from {{ formatPrice(group.minPrice, group.minCurrency) }}{{ formatCycleShort(group.minCycle) }}</span>
               </div>
             </div>
           </div>
+        </section>
 
-          <button class="action-btn primary-btn submit-btn" type="submit" :disabled="!canSubmit || loading">
-            {{ loading ? 'Deploying...' : 'Deploy Instance' }}
-          </button>
-        </form>
-      </section>
+        <!-- ─── Step 2: Choose Specs ─── -->
+        <section v-if="step >= 2" class="section glass-card" :class="{ dimmed: step > 2 && step < 4 }">
+          <div class="section-head">
+            <span class="step-num" :class="{ done: step > 2 }">{{ step > 2 ? '✓' : '2' }}</span>
+            <h2>Select a Plan</h2>
+            <button v-if="step > 2" class="change-btn" @click="goBackToSpecs">Change</button>
+          </div>
 
-      <!-- Step 3: Deploying overlay -->
-      <div v-if="step === 3 && loading" class="deploying-overlay glass-card">
+          <!-- Selected plan pill (collapsed) -->
+          <div v-if="step > 2 && selectedProduct" class="chosen-pill">
+            <span class="chosen-label">{{ selectedProduct.name }}</span>
+            <span class="chosen-code">{{ specLabel(selectedProduct) }}</span>
+            <span class="chosen-price">{{ formatPrice(selectedProduct.price_amount, selectedProduct.currency) }}{{ formatCycleShort(selectedProduct.billing_cycle) }}</span>
+          </div>
+
+          <!-- Spec cards -->
+          <div v-if="step === 2" class="plan-grid">
+            <div
+              v-for="product in locationProducts"
+              :key="product.id"
+              class="plan-card"
+              :class="{ selected: selectedProduct?.id === product.id }"
+              @click="selectSpec(product)"
+            >
+              <div class="plan-name">{{ product.name }}</div>
+              <div class="plan-specs-detail">
+                <div class="plan-spec-row">
+                  <span class="plan-spec-icon">⚡</span>
+                  <span>{{ product.cpu }} vCPU</span>
+                </div>
+                <div class="plan-spec-row">
+                  <span class="plan-spec-icon">◈</span>
+                  <span>{{ formatMemory(product.memory_mb) }} RAM</span>
+                </div>
+                <div class="plan-spec-row">
+                  <span class="plan-spec-icon">▣</span>
+                  <span>{{ product.disk_gb }} GB NVMe</span>
+                </div>
+                <div class="plan-spec-row">
+                  <span class="plan-spec-icon">↕</span>
+                  <span>{{ product.bandwidth_gb ? product.bandwidth_gb + ' GB' : 'Unlimited' }} BW</span>
+                </div>
+              </div>
+              <div class="plan-price">{{ formatPrice(product.price_amount, product.currency) }}<span class="per-mo">{{ formatCycleShort(product.billing_cycle) }}</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── Step 3: Configure & Deploy ─── -->
+        <section v-if="step >= 3 && step < 4" class="section glass-card">
+          <div class="section-head">
+            <span class="step-num">3</span>
+            <h2>Configure & Deploy</h2>
+          </div>
+
+          <div v-if="error" class="form-error">{{ error }}</div>
+
+          <div v-if="nodeResolving" class="node-resolving">
+            <div class="spinner small"></div>
+            <span>Finding best available node...</span>
+          </div>
+          <div v-else-if="nodeError" class="form-error">{{ nodeError }}</div>
+
+          <form class="config-form" @submit.prevent="handleSubmit">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Hostname</label>
+                <input v-model="form.hostname" type="text" placeholder="e.g. web-prod-01" required />
+              </div>
+              <div class="form-group">
+                <label>Operating System</label>
+                <select v-model="form.os" required>
+                  <option v-for="os in osList" :key="os.value" :value="os.value">{{ os.label }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Currency</label>
+                <select v-model="form.currency" required>
+                  <option v-for="c in currencies" :key="c.value" :value="c.value">{{ c.label }}</option>
+                </select>
+              </div>
+              <div class="form-group"></div>
+            </div>
+
+            <!-- Summary -->
+            <div v-if="selectedProduct" class="summary-card">
+              <h3>Instance Summary</h3>
+              <div class="summary-grid">
+                <div class="summary-row">
+                  <span class="summary-label">Location</span>
+                  <span class="summary-value">{{ locationDisplay(selectedLocation).flag }} {{ locationDisplay(selectedLocation).city }}</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label">Plan</span>
+                  <span class="summary-value">{{ selectedProduct.name }}</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label">Specs</span>
+                  <span class="summary-value">{{ specLabel(selectedProduct) }}</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label">Hostname</span>
+                  <span class="summary-value mono">{{ form.hostname || '—' }}</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label">OS</span>
+                  <span class="summary-value">{{ osList.find(o => o.value === form.os)?.label || form.os }}</span>
+                </div>
+                <div class="summary-row total-row">
+                  <span class="summary-label">{{ selectedProduct.billing_cycle === 'monthly' ? 'Monthly' : selectedProduct.billing_cycle === 'quarterly' ? 'Quarterly' : 'Annually' }}</span>
+                  <span class="summary-value price">{{ formatPrice(selectedProduct.price_amount, selectedProduct.currency) }}{{ formatCycleShort(selectedProduct.billing_cycle) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <button class="action-btn primary-btn submit-btn" type="submit" :disabled="!canSubmit || loading">
+              {{ loading ? 'Deploying...' : 'Deploy Instance' }}
+            </button>
+          </form>
+        </section>
+
+      </template>
+
+      <!-- Step 4: Deploying overlay -->
+      <div v-if="step === 4 && loading" class="deploying-overlay glass-card">
         <div class="spinner"></div>
         <p>Provisioning your instance...</p>
       </div>
@@ -311,7 +475,7 @@ async function handleSubmit() {
   font-size: 0.95rem;
 }
 
-/* Sections */
+/* ─── Sections ─── */
 .section {
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -319,7 +483,7 @@ async function handleSubmit() {
 }
 
 .section.dimmed {
-  opacity: 0.4;
+  opacity: 0.45;
   pointer-events: none;
 }
 
@@ -342,6 +506,14 @@ async function handleSubmit() {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-num.done {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #4ade80;
+  font-size: 0.7rem;
 }
 
 .section-head h2 {
@@ -349,12 +521,134 @@ async function handleSubmit() {
   font-size: 1.1rem;
   font-weight: 600;
   color: #fff;
+  flex: 1;
 }
 
-/* Plan grid */
+.change-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.change-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ─── Chosen pill (collapsed selection) ─── */
+.chosen-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.chosen-flag {
+  font-size: 1.1rem;
+}
+
+.chosen-label {
+  font-weight: 600;
+  color: #fff;
+}
+
+.chosen-code {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.78rem;
+}
+
+.chosen-price {
+  margin-left: auto;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f87171, #fb923c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 0.9rem;
+}
+
+/* ─── Location grid ─── */
+.location-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.location-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.1rem 1.25rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.location-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.loc-flag {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+}
+
+.loc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.loc-city {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.loc-country {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 0.1rem;
+}
+
+.loc-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.loc-plans {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.loc-from {
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #f87171, #fb923c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Plan grid ─── */
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 0.75rem;
 }
 
@@ -365,12 +659,15 @@ async function handleSubmit() {
   border: 1px solid rgba(255, 255, 255, 0.08);
   cursor: pointer;
   transition: all 0.2s;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .plan-card:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
 }
 
 .plan-card.selected {
@@ -381,30 +678,93 @@ async function handleSubmit() {
 
 .plan-name {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #fff;
-  margin-bottom: 0.35rem;
 }
 
-.plan-specs {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 0.5rem;
+.plan-specs-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.plan-spec-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.plan-spec-icon {
+  width: 16px;
+  text-align: center;
+  font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 .plan-price {
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   font-weight: 800;
-  color: #fff;
+  background: linear-gradient(135deg, #f87171, #fb923c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-top: auto;
 }
 
 .per-mo {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
   font-weight: 400;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.4);
 }
 
-/* Form */
+/* ─── Loading / Error / Empty states ─── */
+.products-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2.5rem;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+}
+
+.products-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2.5rem;
+  color: #fca5a5;
+  font-size: 0.9rem;
+}
+
+.products-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.empty-icon {
+  font-size: 2rem;
+  opacity: 0.3;
+}
+
+.node-resolving {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ─── Form ─── */
 .form-error {
   padding: 0.75rem 1rem;
   background: rgba(239, 68, 68, 0.08);
@@ -429,6 +789,9 @@ async function handleSubmit() {
 
 @media (max-width: 640px) {
   .form-row {
+    grid-template-columns: 1fr;
+  }
+  .location-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -473,13 +836,7 @@ async function handleSubmit() {
   color: #fff;
 }
 
-.field-loading {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.4);
-  padding: 0.6rem 0;
-}
-
-/* Summary */
+/* ─── Summary ─── */
 .summary-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -539,7 +896,7 @@ async function handleSubmit() {
   align-self: flex-start;
 }
 
-/* Deploying */
+/* ─── Deploying overlay ─── */
 .deploying-overlay {
   display: flex;
   flex-direction: column;
@@ -556,6 +913,12 @@ async function handleSubmit() {
   border-top-color: #a78bfa;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+.spinner.small {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
 }
 
 @keyframes spin {

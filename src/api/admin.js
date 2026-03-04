@@ -84,6 +84,13 @@ export async function enqueueTask(nodeID, { type, spec }) {
   return res.data
 }
 
+// ---- Regions ----
+
+export async function listRegions() {
+  const res = await request('GET', '/api/v1/regions')
+  return res.data || []
+}
+
 // ---- Products (admin) ----
 
 export async function listAllProducts() {
@@ -108,6 +115,11 @@ export async function disableProduct(id) {
 
 export async function updateProductPrice(id, price) {
   const res = await request('PUT', `/api/v1/admin/products/${id}/price`, price)
+  return res.data
+}
+
+export async function adjustProductStock(id, totalSlots) {
+  const res = await request('PUT', `/api/v1/admin/products/${id}/stock`, { total_slots: totalSlots })
   return res.data
 }
 
