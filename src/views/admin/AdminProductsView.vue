@@ -1,0 +1,520 @@
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import AdminLayout from '../../components/AdminLayout.vue'
+import { listAllProducts, enableProduct, disableProduct } from '../../api/admin'
+
+const router = useRouter()
+const products = ref([])
+const loading = ref(true)
+const error = ref('')
+const filterStatus = ref('all')
+const searchQuery = ref('')
+
+onMounted(fetchProducts)
+
+async function fetchProducts() {
+  loading.value = true
+  error.value = ''
+  try {
+    products.value = await listAllProducts()
+  } catch (err) {
+    error.value = err.message
+    products.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+const filteredProducts = computed(() => {
+  let results = products.value
+  if (filterStatus.value === 'enabled') {
+    results = results.filter(p => p.enabled)
+  } else if (filterStatus.value === 'disabled') {
+    results = results.filter(p => !p.enabled)
+  }
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    results = results.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.slug.toLowerCase().includes(q) ||
+      (p.location && p.location.toLowerCase().includes(q))
+    )
+  }
+  return results
+})
+
+const statusCounts = computed(() => {
+  const all = products.value
+  return {
+    all: all.length,
+    enabled: all.filter(p => p.enabled).length,
+    disabled: all.filter(p => !p.enabled).length
+  }
+})
+
+const filterTabs = [
+  { key: 'all', label: 'All' },
+  { key: 'enabled', label: 'On Sale' },
+  { key: 'disabled', label: 'Disabled' }
+]
+
+function formatPrice(amount, currency) {
+  const value = (amount / 100).toFixed(2)
+  return `${currency.toUpperCase()} ${value}`
+}
+
+function formatCycle(cycle) {
+  const map = { monthly: '/mo', quarterly: '/qtr', annually: '/yr' }
+  return map[cycle] || `/${cycle}`
+}
+
+async function toggleEnabled(product) {
+  try {
+    if (product.enabled) {
+      await disableProduct(product.id)
+      product.enabled = false
+    } else {
+      await enableProduct(product.id)
+      product.enabled = true
+    }
+  } catch (err) {
+    error.value = err.message
+  }
+}
+
+function goToProduct(id) {
+  router.push(`/admin/products/${id}`)
+}
+</script>
+
+<template>
+  <AdminLayout>
+    <div class="products-page">
+      <header class="page-header">
+        <div>
+          <h1 class="page-title">Products</h1>
+          <p class="page-subtitle">Manage VPS plans offered to customers</p>
+        </div>
+        <router-link to="/admin/products/new" class="action-btn primary-btn small-btn">
+          <span>✦</span> New Product
+        </router-link>
+      </header>
+
+      <!-- Filters -->
+      <div class="filters glass-card">
+        <div class="filter-tabs">
+          <button
+            v-for="tab in filterTabs"
+            :key="tab.key"
+            class="filter-tab"
+            :class="{ active: filterStatus === tab.key }"
+            @click="filterStatus = tab.key"
+          >
+            {{ tab.label }}
+            <span class="count-badge">{{ statusCounts[tab.key] }}</span>
+          </button>
+        </div>
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search name or slug..."
+            class="search-input"
+          />
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="loading" class="loading-state glass-card">
+        <div class="spinner"></div>
+        <span>Loading products...</span>
+      </div>
+
+      <!-- Error -->
+      <div v-else-if="error" class="error-state glass-card">
+        <p>{{ error }}</p>
+        <button class="action-btn secondary-btn small-btn" @click="fetchProducts">Retry</button>
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="filteredProducts.length === 0" class="empty-state glass-card">
+        <div class="empty-icon">◇</div>
+        <p>No products match your filters.</p>
+        <router-link v-if="products.length === 0" to="/admin/products/new" class="action-btn primary-btn small-btn">
+          Create First Product
+        </router-link>
+      </div>
+
+      <!-- Product Cards -->
+      <div v-else class="product-list">
+        <div
+          v-for="product in filteredProducts"
+          :key="product.id"
+          class="product-card glass-card"
+          @click="goToProduct(product.id)"
+        >
+          <div class="product-card-top">
+            <div class="product-name-col">
+              <span class="product-name">{{ product.name }}</span>
+              <span class="product-slug">{{ product.slug }}</span>
+              <span v-if="product.location" class="product-location">📍 {{ product.location }}</span>
+            </div>
+            <div class="product-status-col">
+              <span class="status-badge" :class="product.enabled ? 'enabled' : 'disabled'">
+                {{ product.enabled ? 'On Sale' : 'Disabled' }}
+              </span>
+              <button
+                class="toggle-btn"
+                :class="product.enabled ? 'on' : 'off'"
+                @click.stop="toggleEnabled(product)"
+                :title="product.enabled ? 'Disable product' : 'Enable product'"
+              >
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="product-card-body">
+            <div class="specs-grid">
+              <div class="spec-item">
+                <span class="spec-label">CPU</span>
+                <span class="spec-value">{{ product.cpu }} <small>vCPU</small></span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Memory</span>
+                <span class="spec-value">{{ product.memory_mb >= 1024 ? (product.memory_mb / 1024) + ' GB' : product.memory_mb + ' MB' }}</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Disk</span>
+                <span class="spec-value">{{ product.disk_gb }} <small>GB</small></span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Bandwidth</span>
+                <span class="spec-value">{{ product.bandwidth_gb ? product.bandwidth_gb + ' GB' : '∞' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="product-card-bottom">
+            <span class="product-price">{{ formatPrice(product.price_amount, product.currency) }}{{ formatCycle(product.billing_cycle) }}</span>
+            <span class="product-stock">
+              <span class="stock-avail">{{ product.available_slots }}</span> / {{ product.total_slots }} slots
+            </span>
+            <span class="product-id mono">{{ product.id.substring(0, 8) }}…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </AdminLayout>
+</template>
+
+<style scoped>
+.products-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-subtitle {
+  margin: 0.25rem 0 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.95rem;
+}
+
+/* Filters */
+.filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.filter-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-tab:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.filter-tab.active {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.count-badge {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+}
+
+.search-icon { color: rgba(255, 255, 255, 0.3); font-size: 0.9rem; }
+
+.search-input {
+  background: none;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 0.85rem;
+  width: 200px;
+}
+.search-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+
+/* Loading / Error / Empty */
+.loading-state, .error-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.empty-icon { font-size: 2.5rem; opacity: 0.3; }
+
+.spinner {
+  width: 24px; height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top: 2px solid #f87171;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Product Cards */
+.product-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1rem;
+}
+
+.product-card {
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.product-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.product-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.product-name-col { display: flex; flex-direction: column; gap: 0.15rem; }
+.product-name {
+  font-weight: 700;
+  color: #fff;
+  font-size: 1.05rem;
+}
+.product-slug {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: monospace;
+}
+
+.product-location {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 0.1rem;
+}
+
+.product-status-col {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.status-badge.enabled {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.status-badge.disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Toggle Switch */
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.toggle-track {
+  display: flex;
+  align-items: center;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  padding: 2px;
+  transition: background 0.2s;
+}
+
+.toggle-btn.on .toggle-track {
+  background: rgba(34, 197, 94, 0.4);
+}
+
+.toggle-btn.off .toggle-track {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.toggle-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+
+.toggle-btn.on .toggle-thumb {
+  transform: translateX(16px);
+}
+
+.toggle-btn.off .toggle-thumb {
+  transform: translateX(0);
+}
+
+/* Specs */
+.specs-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.spec-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.6rem 0.4rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.spec-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.04em;
+}
+
+.spec-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+.spec-value small {
+  font-weight: 400;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Bottom */
+.product-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.product-price {
+  font-size: 1rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f87171, #fb923c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.product-stock {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.stock-avail {
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.product-id {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.mono { font-family: monospace; }
+</style>
