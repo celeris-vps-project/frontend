@@ -4,11 +4,15 @@ import { useRouter } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import NodeStatusBadge from '../../components/NodeStatusBadge.vue'
 import { listHostNodes, formatPercent } from '../../api/admin'
+import { useNodeStatusWS } from '../../api/ws'
 
 const router = useRouter()
 const nodes = ref([])
 const loading = ref(true)
 const error = ref('')
+
+// Real-time WebSocket updates
+const { nodeStates, connected } = useNodeStatusWS()
 
 onMounted(fetchNodes)
 
@@ -25,8 +29,27 @@ async function fetchNodes() {
   }
 }
 
+// Merge WebSocket state updates into the node list reactively
+const mergedNodes = computed(() => {
+  return nodes.value.map(n => {
+    const ws = nodeStates[n.id]
+    if (!ws) return n
+    return {
+      ...n,
+      status: ws.status ?? n.status,
+      cpu_usage: ws.cpu_usage ?? n.cpu_usage,
+      mem_usage: ws.mem_usage ?? n.mem_usage,
+      disk_usage: ws.disk_usage ?? n.disk_usage,
+      vm_count: ws.vm_count ?? n.vm_count,
+      ip: ws.ip || n.ip,
+      agent_ver: ws.agent_ver || n.agent_ver,
+      last_seen_at: ws.last_seen_at || n.last_seen_at,
+    }
+  })
+})
+
 const stats = computed(() => {
-  const all = nodes.value
+  const all = mergedNodes.value
   const online = all.filter(n => n.status === 'online').length
   const offline = all.filter(n => n.status === 'offline').length
   const totalVMs = all.reduce((sum, n) => sum + (n.vm_count || 0), 0)
@@ -99,7 +122,7 @@ function goToNode(id) {
           <button class="retry-btn" @click="fetchNodes">Retry</button>
         </div>
 
-        <div v-else-if="nodes.length === 0" class="empty-state">
+        <div v-else-if="mergedNodes.length === 0" class="empty-state">
           <p>No host nodes registered yet.</p>
           <router-link to="/admin/nodes/new" class="action-btn primary-btn small-btn">
             Add First Node
@@ -121,7 +144,7 @@ function goToNode(id) {
           </thead>
           <tbody>
             <tr
-              v-for="node in nodes"
+              v-for="node in mergedNodes"
               :key="node.id"
               class="node-row"
               @click="goToNode(node.id)"

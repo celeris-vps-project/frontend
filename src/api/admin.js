@@ -1,45 +1,7 @@
 /**
  * Admin API — talks to /api/v1/admin/* endpoints (requires admin JWT).
  */
-import { getToken } from './auth'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
-
-function authHeaders() {
-  const token = getToken()
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
-  }
-}
-
-function getErrorMessage(data, fallback) {
-  if (!data) return fallback
-  if (typeof data === 'string') return data
-  if (typeof data.error === 'string') return data.error
-  if (typeof data.message === 'string') return data.message
-  return fallback
-}
-
-async function request(method, path, body = null) {
-  const opts = { method, headers: authHeaders() }
-  if (body) opts.body = JSON.stringify(body)
-
-  const response = await fetch(`${API_BASE_URL}${path}`, opts)
-
-  let data = null
-  try {
-    data = await response.json()
-  } catch {
-    data = null
-  }
-
-  if (!response.ok) {
-    throw new Error(getErrorMessage(data, 'Request failed'))
-  }
-
-  return data
-}
+import { request } from './request'
 
 // ---- Current user ----
 
@@ -60,9 +22,44 @@ export async function getHostNode(id) {
   return res.data
 }
 
-export async function createHostNode({ code, location, name, secret }) {
-  const res = await request('POST', '/api/v1/admin/host-nodes', { code, location, name, secret })
+export async function createHostNode({ code, location, name, total_slots, token_ttl_minutes, token_description }) {
+  const res = await request('POST', '/api/v1/admin/host-nodes', { code, location, name, total_slots, token_ttl_minutes, token_description })
+  return { node: res.data, bootstrap_token: res.bootstrap_token }
+}
+
+export async function enableHostNode(id) {
+  const res = await request('POST', `/api/v1/admin/host-nodes/${id}/enable`)
   return res.data
+}
+
+export async function disableHostNode(id) {
+  const res = await request('POST', `/api/v1/admin/host-nodes/${id}/disable`)
+  return res.data
+}
+
+export async function revokeNodeToken(id) {
+  return await request('POST', `/api/v1/admin/host-nodes/${id}/revoke-token`)
+}
+
+export async function createNodeBootstrapToken(nodeId, { ttl_minutes, description }) {
+  const res = await request('POST', '/api/v1/admin/bootstrap-tokens', { node_id: nodeId, ttl_minutes, description })
+  return res.data
+}
+
+// ---- Bootstrap Tokens ----
+
+export async function listBootstrapTokens() {
+  const res = await request('GET', '/api/v1/admin/bootstrap-tokens')
+  return res.data || []
+}
+
+export async function createBootstrapToken({ ttl_minutes, description }) {
+  const res = await request('POST', '/api/v1/admin/bootstrap-tokens', { ttl_minutes, description })
+  return res.data
+}
+
+export async function revokeBootstrapToken(id) {
+  return await request('DELETE', `/api/v1/admin/bootstrap-tokens/${id}`)
 }
 
 // ---- IP Addresses ----
@@ -91,7 +88,68 @@ export async function listRegions() {
   return res.data || []
 }
 
+export async function listAllRegions() {
+  const res = await request('GET', '/api/v1/admin/regions')
+  return res.data || []
+}
+
+// ---- Resource Pools ----
+
+export async function listResourcePools() {
+  const res = await request('GET', '/api/v1/admin/resource-pools')
+  return res.data || []
+}
+
+export async function getResourcePool(id) {
+  const res = await request('GET', `/api/v1/admin/resource-pools/${id}`)
+  return res.data
+}
+
+export async function createResourcePool({ name, region_id }) {
+  const res = await request('POST', '/api/v1/admin/resource-pools', { name, region_id })
+  return res.data
+}
+
+export async function updateResourcePool(id, { name, region_id }) {
+  const res = await request('PUT', `/api/v1/admin/resource-pools/${id}`, { name, region_id })
+  return res.data
+}
+
+export async function activateResourcePool(id) {
+  const res = await request('POST', `/api/v1/admin/resource-pools/${id}/activate`)
+  return res.data
+}
+
+export async function deactivateResourcePool(id) {
+  const res = await request('POST', `/api/v1/admin/resource-pools/${id}/deactivate`)
+  return res.data
+}
+
+export async function assignNodeToPool(poolId, nodeId) {
+  const res = await request('POST', `/api/v1/admin/resource-pools/${poolId}/nodes`, { node_id: nodeId })
+  return res
+}
+
+export async function removeNodeFromPool(poolId, nodeId) {
+  const res = await request('DELETE', `/api/v1/admin/resource-pools/${poolId}/nodes/${nodeId}`)
+  return res
+}
+
 // ---- Products (admin) ----
+
+// ---- WebSocket Ticket ----
+
+/**
+ * Fetch a short-lived, one-time ticket for WebSocket authentication.
+ * The JWT is sent via the normal Authorization header; the backend validates
+ * the admin role and returns a ticket string.
+ */
+export async function fetchWsTicket() {
+  const res = await request('POST', '/api/v1/admin/ws/ticket')
+  return res.ticket
+}
+
+// ---- Products (admin management) ----
 
 export async function listAllProducts() {
   const res = await request('GET', '/api/v1/admin/products')

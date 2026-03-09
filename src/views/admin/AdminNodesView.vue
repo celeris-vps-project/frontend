@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import NodeStatusBadge from '../../components/NodeStatusBadge.vue'
 import { listHostNodes, formatPercent, formatDateTime } from '../../api/admin'
+import { useNodeStatusWS } from '../../api/ws'
 
 const router = useRouter()
 const nodes = ref([])
@@ -11,6 +12,9 @@ const loading = ref(true)
 const error = ref('')
 const filterStatus = ref('all')
 const searchQuery = ref('')
+
+// Real-time WebSocket updates
+const { nodeStates, connected } = useNodeStatusWS()
 
 onMounted(fetchNodes)
 
@@ -27,8 +31,27 @@ async function fetchNodes() {
   }
 }
 
+// Merge WebSocket state updates into the node list reactively
+const mergedNodes = computed(() => {
+  return nodes.value.map(n => {
+    const ws = nodeStates[n.id]
+    if (!ws) return n
+    return {
+      ...n,
+      status: ws.status ?? n.status,
+      cpu_usage: ws.cpu_usage ?? n.cpu_usage,
+      mem_usage: ws.mem_usage ?? n.mem_usage,
+      disk_usage: ws.disk_usage ?? n.disk_usage,
+      vm_count: ws.vm_count ?? n.vm_count,
+      ip: ws.ip || n.ip,
+      agent_ver: ws.agent_ver || n.agent_ver,
+      last_seen_at: ws.last_seen_at || n.last_seen_at,
+    }
+  })
+})
+
 const filteredNodes = computed(() => {
-  let results = nodes.value
+  let results = mergedNodes.value
   if (filterStatus.value !== 'all') {
     results = results.filter(n => n.status === filterStatus.value)
   }
@@ -45,8 +68,8 @@ const filteredNodes = computed(() => {
 })
 
 const statusCounts = computed(() => {
-  const counts = { all: nodes.value.length, online: 0, offline: 0 }
-  nodes.value.forEach(n => {
+  const counts = { all: mergedNodes.value.length, online: 0, offline: 0 }
+  mergedNodes.value.forEach(n => {
     if (counts[n.status] !== undefined) counts[n.status]++
   })
   return counts

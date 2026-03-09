@@ -10,9 +10,8 @@ const sidebarOpen = ref(true)
 const navItems = [
   { path: '/admin', label: 'Overview', icon: '⬡' },
   { path: '/admin/nodes', label: 'Host Nodes', icon: '⬢' },
-  { path: '/admin/nodes/new', label: 'Add Node', icon: '✦' },
+  { path: '/admin/resource-pools', label: 'Resource Pools', icon: '◈' },
   { path: '/admin/products', label: 'Products', icon: '◇' },
-  { path: '/admin/products/new', label: 'New Product', icon: '✦' }
 ]
 
 function isActive(path) {

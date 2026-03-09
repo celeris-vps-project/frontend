@@ -200,7 +200,12 @@ function goToProduct(id) {
           <div class="product-card-bottom">
             <span class="product-price">{{ formatPrice(product.price_amount, product.currency) }}{{ formatCycle(product.billing_cycle) }}</span>
             <span class="product-stock">
-              <span class="stock-avail">{{ product.available_slots }}</span> / {{ product.total_slots }} slots
+              <template v-if="product.is_unlimited">
+                <span class="stock-avail">∞</span> unlimited
+              </template>
+              <template v-else>
+                <span class="stock-avail">{{ product.available_slots }}</span> / {{ product.total_slots }} slots
+              </template>
             </span>
             <span class="product-id mono">{{ product.id.substring(0, 8) }}…</span>
           </div>

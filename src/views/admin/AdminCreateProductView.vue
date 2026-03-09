@@ -2,18 +2,21 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
-import { createProduct, listRegions } from '../../api/admin'
+import { createProduct, listResourcePools, listAllRegions } from '../../api/admin'
 
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
+const pools = ref([])
 const regions = ref([])
-const regionsLoading = ref(false)
+const poolsLoading = ref(false)
+
+const unlimitedStock = ref(false)
 
 const form = ref({
   name: '',
   slug: '',
-  location: '',
+  resource_pool_id: '',
   cpu: 1,
   memory_mb: 1024,
   disk_gb: 25,
@@ -21,18 +24,32 @@ const form = ref({
   price_amount: '',
   currency: 'USD',
   billing_cycle: 'monthly',
-  total_slots: 0
+  total_slots: 10
 })
 
 onMounted(async () => {
-  regionsLoading.value = true
+  poolsLoading.value = true
   try {
-    regions.value = await listRegions()
+    const [poolsData, regionsData] = await Promise.all([
+      listResourcePools(),
+      listAllRegions()
+    ])
+    pools.value = poolsData
+    regions.value = regionsData
   } catch (e) {
-    console.error('Failed to load regions', e)
+    console.error('Failed to load data', e)
   } finally {
-    regionsLoading.value = false
+    poolsLoading.value = false
   }
+})
+
+const selectedPool = computed(() => {
+  return pools.value.find(p => p.pool_id === form.value.resource_pool_id)
+})
+
+const selectedRegion = computed(() => {
+  if (!selectedPool.value) return null
+  return regions.value.find(r => r.id === selectedPool.value.region_id)
 })
 
 // Auto-generate slug from name
@@ -71,24 +88,28 @@ const priceInCents = computed(() => {
 const formValid = computed(() => {
   return form.value.name
     && form.value.slug
-    && form.value.location
+    && form.value.resource_pool_id
     && form.value.cpu > 0
     && form.value.memory_mb > 0
     && form.value.disk_gb > 0
     && priceInCents.value > 0
     && form.value.currency
     && form.value.billing_cycle
-    && form.value.total_slots >= 0
+    && (unlimitedStock.value || form.value.total_slots >= 0)
 })
 
 async function handleSubmit() {
   error.value = ''
   loading.value = true
   try {
+    const region = selectedRegion.value
+    const pool = selectedPool.value
     const payload = {
       name: form.value.name,
       slug: form.value.slug,
-      location: form.value.location,
+      location: region ? region.name : '',
+      region_id: pool ? pool.region_id : '',
+      resource_pool_id: form.value.resource_pool_id,
       cpu: Number(form.value.cpu),
       memory_mb: Number(form.value.memory_mb),
       disk_gb: Number(form.value.disk_gb),
@@ -96,7 +117,7 @@ async function handleSubmit() {
       price_amount: priceInCents.value,
       currency: form.value.currency,
       billing_cycle: form.value.billing_cycle,
-      total_slots: Number(form.value.total_slots)
+      total_slots: unlimitedStock.value ? -1 : Number(form.value.total_slots)
     }
     const product = await createProduct(payload)
     router.push(`/admin/products/${product.id}`)
@@ -134,14 +155,15 @@ async function handleSubmit() {
               <span class="form-hint">URL-friendly identifier (auto-generated)</span>
             </div>
             <div class="form-group full-width">
-              <label>Region</label>
-              <select v-model="form.location" required class="form-select" :disabled="regionsLoading">
-                <option value="" disabled>{{ regionsLoading ? 'Loading regions...' : 'Select a region' }}</option>
-                <option v-for="region in regions" :key="region.code" :value="region.code">
-                  {{ region.flag_icon }} {{ region.name }} ({{ region.code }})
+              <label>Resource Pool</label>
+              <select v-model="form.resource_pool_id" required class="form-select" :disabled="poolsLoading">
+                <option value="" disabled>{{ poolsLoading ? 'Loading resource pools...' : 'Select a resource pool' }}</option>
+                <option v-for="pool in pools" :key="pool.pool_id" :value="pool.pool_id">
+                  {{ pool.pool_name }}
                 </option>
               </select>
-              <span class="form-hint">Region code — products with the same region are grouped together for customers</span>
+              <span v-if="selectedRegion" class="form-hint">Region: {{ selectedRegion.flag_icon }} {{ selectedRegion.name }}</span>
+              <span v-else class="form-hint">Select a resource pool to assign this product</span>
             </div>
           </div>
         </section>
@@ -200,12 +222,17 @@ async function handleSubmit() {
           <div class="form-grid">
             <div class="form-group">
               <label>Total Slots</label>
-              <div class="stepper">
+              <label class="unlimited-toggle">
+                <input type="checkbox" v-model="unlimitedStock" />
+                <span>Unlimited</span>
+              </label>
+              <div v-if="!unlimitedStock" class="stepper">
                 <button type="button" class="stepper-btn" @click="form.total_slots = Math.max(0, form.total_slots - 1)">−</button>
                 <input v-model.number="form.total_slots" type="number" min="0" class="form-input stepper-input" />
                 <button type="button" class="stepper-btn" @click="form.total_slots++">+</button>
               </div>
-              <span class="form-hint">Maximum instances available for purchase (0 = unlimited)</span>
+              <div v-else class="unlimited-badge">∞ No cap on instances</div>
+              <span class="form-hint">{{ unlimitedStock ? 'Unlimited inventory — no slot limit' : 'Maximum instances available for purchase' }}</span>
             </div>
           </div>
         </section>
@@ -405,6 +432,38 @@ async function handleSubmit() {
 }
 
 .mono { font-family: monospace; }
+
+/* Unlimited toggle */
+.unlimited-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  font-size: 0.82rem !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  user-select: none;
+}
+
+.unlimited-toggle input[type="checkbox"] {
+  accent-color: #6366f1;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.unlimited-badge {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 0.85rem;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 10px;
+  color: #818cf8;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-style: italic;
+}
 
 /* Stepper */
 .stepper {

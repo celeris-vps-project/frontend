@@ -27,7 +27,7 @@ const priceSuccess = ref('')
 
 // Stock edit
 const editingStock = ref(false)
-const stockForm = ref({ totalSlots: 0 })
+const stockForm = ref({ totalSlots: 0, unlimited: false })
 const stockLoading = ref(false)
 const stockError = ref('')
 const stockSuccess = ref('')
@@ -95,7 +95,8 @@ async function savePrice() {
 }
 
 function startEditStock() {
-  stockForm.value.totalSlots = product.value.total_slots
+  stockForm.value.unlimited = product.value.is_unlimited
+  stockForm.value.totalSlots = product.value.is_unlimited ? 10 : product.value.total_slots
   stockError.value = ''
   stockSuccess.value = ''
   editingStock.value = true
@@ -106,12 +107,13 @@ async function saveStock() {
   stockSuccess.value = ''
   stockLoading.value = true
   try {
-    const newTotal = Number(stockForm.value.totalSlots)
+    const newTotal = stockForm.value.unlimited ? -1 : Number(stockForm.value.totalSlots)
     if (newTotal < -1) throw new Error('Total slots must be -1 (unlimited) or >= 0')
     const updated = await adjustProductStock(product.value.id, newTotal)
     product.value.total_slots = updated.total_slots
     product.value.sold_slots = updated.sold_slots
     product.value.available_slots = updated.available_slots
+    product.value.is_unlimited = updated.is_unlimited
     stockSuccess.value = 'Stock updated'
     editingStock.value = false
   } catch (err) {
@@ -199,7 +201,7 @@ function formatMemory(mb) {
           <div class="info-card glass-card">
             <span class="info-label">Stock</span>
             <span class="info-value stock-value">
-              <template v-if="product.total_slots === -1">∞ <small>Unlimited</small></template>
+              <template v-if="product.is_unlimited">∞ <small>Unlimited</small></template>
               <template v-else>{{ product.available_slots }} <small>/ {{ product.total_slots }}</small></template>
             </span>
           </div>
@@ -323,7 +325,7 @@ function formatMemory(mb) {
           <div v-if="!editingStock" class="stock-display">
             <div class="stock-stat">
               <span class="stock-stat-label">Total Slots</span>
-              <span class="stock-stat-value">{{ product.total_slots === -1 ? '∞' : product.total_slots }}</span>
+              <span class="stock-stat-value">{{ product.is_unlimited ? '∞' : product.total_slots }}</span>
             </div>
             <div class="stock-stat">
               <span class="stock-stat-label">Sold</span>
@@ -331,9 +333,9 @@ function formatMemory(mb) {
             </div>
             <div class="stock-stat">
               <span class="stock-stat-label">Available</span>
-              <span class="stock-stat-value available">{{ product.total_slots === -1 ? '∞' : product.available_slots }}</span>
+              <span class="stock-stat-value available">{{ product.is_unlimited ? '∞' : product.available_slots }}</span>
             </div>
-            <div v-if="product.total_slots > 0" class="stock-bar-wrapper">
+            <div v-if="!product.is_unlimited && product.total_slots > 0" class="stock-bar-wrapper">
               <div class="stock-bar-track">
                 <div
                   class="stock-bar-fill"
@@ -344,7 +346,7 @@ function formatMemory(mb) {
                 {{ ((product.sold_slots / product.total_slots) * 100).toFixed(1) }}% sold
               </span>
             </div>
-            <div v-else class="stock-bar-wrapper">
+            <div v-else-if="product.is_unlimited" class="stock-bar-wrapper">
               <span class="stock-bar-label unlimited-label">Unlimited — no cap on instances ({{ product.sold_slots }} sold)</span>
             </div>
           </div>
@@ -353,16 +355,21 @@ function formatMemory(mb) {
             <div class="form-row">
               <div class="form-group flex-1">
                 <label>Total Slots</label>
-                <div class="stepper">
-                  <button type="button" class="stepper-btn" @click="stockForm.totalSlots = Math.max(-1, stockForm.totalSlots - 1)">−</button>
+                <label class="unlimited-toggle">
+                  <input type="checkbox" v-model="stockForm.unlimited" />
+                  <span>Unlimited</span>
+                </label>
+                <div v-if="!stockForm.unlimited" class="stepper">
+                  <button type="button" class="stepper-btn" @click="stockForm.totalSlots = Math.max(0, stockForm.totalSlots - 1)">−</button>
                   <input
                     v-model.number="stockForm.totalSlots"
                     type="number"
-                    min="-1"
+                    min="0"
                     class="form-input stepper-input"
                   />
                   <button type="button" class="stepper-btn" @click="stockForm.totalSlots++">+</button>
                 </div>
+                <div v-else class="unlimited-badge">∞ No cap on instances</div>
               </div>
               <div class="form-group form-group-btn">
                 <label>&nbsp;</label>
@@ -375,7 +382,7 @@ function formatMemory(mb) {
                 </button>
               </div>
             </div>
-            <p class="form-hint-note">Sold slots: {{ product.sold_slots }}. Set to -1 for unlimited. Positive total must be ≥ sold slots.</p>
+            <p class="form-hint-note">Sold slots: {{ product.sold_slots }}. {{ stockForm.unlimited ? 'Unlimited mode — no slot limit.' : 'Positive total must be ≥ sold slots.' }}</p>
             <p v-if="stockError" class="form-error">{{ stockError }}</p>
           </div>
           <p v-if="stockSuccess" class="form-success">{{ stockSuccess }}</p>
@@ -831,6 +838,38 @@ function formatMemory(mb) {
 .unlimited-label {
   font-family: inherit;
   color: rgba(255, 255, 255, 0.45);
+  font-style: italic;
+}
+
+/* Unlimited toggle & badge */
+.unlimited-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  font-size: 0.82rem !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  user-select: none;
+}
+
+.unlimited-toggle input[type="checkbox"] {
+  accent-color: #6366f1;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.unlimited-badge {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 0.85rem;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 10px;
+  color: #818cf8;
+  font-size: 0.9rem;
+  font-weight: 600;
   font-style: italic;
 }
 

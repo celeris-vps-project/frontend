@@ -4,16 +4,14 @@ import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import {
   listProducts,
-  listRegions,
-  listNodes,
-  createOrder,
-  purchaseInstance
+  listGroups,
+  createOrder
 } from '../api/billing.js'
 
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
-const step = ref(1) // 1: pick location, 2: pick specs, 3: configure & deploy
+const step = ref(1) // 1: pick group, 2: pick specs, 3: configure & deploy
 
 const form = reactive({
   hostname: '',
@@ -26,32 +24,27 @@ const products = ref([])
 const productsLoading = ref(true)
 const productsError = ref('')
 
-const regions = ref([])
-const regionsLoading = ref(true)
-const regionsError = ref('')
+const groups = ref([])
+const groupsLoading = ref(true)
+const groupsError = ref('')
 
-const selectedLocation = ref(null)
+const selectedGroup = ref(null)
 const selectedProduct = ref(null)
 
-// Auto-resolved node for the selected product's location
-const resolvedNodeID = ref('')
-const nodeResolving = ref(false)
-const nodeError = ref('')
-
 onMounted(async () => {
-  // Load regions and products in parallel
-  const [regionsResult, productsResult] = await Promise.allSettled([
-    listRegions(),
+  // Load groups and products in parallel
+  const [groupsResult, productsResult] = await Promise.allSettled([
+    listGroups(),
     listProducts()
   ])
 
-  if (regionsResult.status === 'fulfilled') {
-    regions.value = regionsResult.value
+  if (groupsResult.status === 'fulfilled') {
+    groups.value = groupsResult.value
   } else {
-    regionsError.value = regionsResult.reason?.message || 'Failed to load regions'
-    regions.value = []
+    groupsError.value = groupsResult.reason?.message || 'Failed to load groups'
+    groups.value = []
   }
-  regionsLoading.value = false
+  groupsLoading.value = false
 
   if (productsResult.status === 'fulfilled') {
     products.value = productsResult.value
@@ -62,102 +55,79 @@ onMounted(async () => {
   productsLoading.value = false
 })
 
-// ── Computed: build a lookup map from regions by code ──
+// ── Computed: build a lookup map from groups by id ──
 
-const regionByCode = computed(() => {
+const groupByID = computed(() => {
   const map = {}
-  for (const r of regions.value) {
-    map[r.code] = r
+  for (const g of groups.value) {
+    map[g.id] = g
   }
   return map
 })
 
-// ── Computed: group products by region ──
+// ── Computed: group products by group_id ──
 
-const locationGroups = computed(() => {
+const groupEntries = computed(() => {
   const map = {}
   for (const p of products.value) {
-    const loc = p.location || 'Unknown'
-    if (!map[loc]) {
-      map[loc] = { location: loc, products: [], minPrice: Infinity, minCurrency: '', minCycle: '' }
+    const gid = p.group_id || 'ungrouped'
+    if (!map[gid]) {
+      map[gid] = { groupID: gid, products: [], minPrice: Infinity, minCurrency: '', minCycle: '' }
     }
-    map[loc].products.push(p)
-    if (p.price_amount < map[loc].minPrice) {
-      map[loc].minPrice = p.price_amount
-      map[loc].minCurrency = p.currency
-      map[loc].minCycle = p.billing_cycle
+    map[gid].products.push(p)
+    if (p.price_amount < map[gid].minPrice) {
+      map[gid].minPrice = p.price_amount
+      map[gid].minCurrency = p.currency
+      map[gid].minCycle = p.billing_cycle
     }
   }
-  // Only show groups that have a matching active region (or keep unknown for fallback)
-  return Object.values(map).sort((a, b) => a.location.localeCompare(b.location))
+  // Sort by group sort_order (from the groups API), then name
+  return Object.values(map).sort((a, b) => {
+    const ga = groupByID.value[a.groupID]
+    const gb = groupByID.value[b.groupID]
+    const orderA = ga ? ga.sort_order : 999
+    const orderB = gb ? gb.sort_order : 999
+    return orderA - orderB
+  })
 })
 
-const locationProducts = computed(() => {
-  if (!selectedLocation.value) return []
-  const group = locationGroups.value.find(g => g.location === selectedLocation.value)
-  return group ? group.products : []
+const groupProducts = computed(() => {
+  if (!selectedGroup.value) return []
+  const entry = groupEntries.value.find(g => g.groupID === selectedGroup.value)
+  return entry ? entry.products : []
 })
 
-// ── Location display helpers (dynamic from regions API) ──
+// ── Group display helper ──
 
-function locationDisplay(code) {
-  const region = regionByCode.value[code]
-  if (region) {
-    // Parse name like "Frankfurt, Germany" into city + country
-    const parts = region.name.split(',')
-    const city = parts[0]?.trim() || region.name
-    const country = parts.slice(1).join(',').trim() || ''
-    return { city, country, flag: region.flag_icon || '📍' }
+function groupDisplay(groupID) {
+  const group = groupByID.value[groupID]
+  if (group) {
+    return { name: group.name, description: group.description }
   }
-  return { city: code, country: '', flag: '📍' }
+  return { name: groupID, description: '' }
 }
 
 // ── Selection handlers ──
 
-async function selectLocation(loc) {
-  selectedLocation.value = loc
+function selectGroup(groupID) {
+  selectedGroup.value = groupID
   selectedProduct.value = null
-  resolvedNodeID.value = ''
-  nodeError.value = ''
   step.value = 2
 }
 
-async function selectSpec(product) {
+function selectSpec(product) {
   selectedProduct.value = product
   step.value = 3
-
-  // Auto-resolve a node for this product's location
-  resolvedNodeID.value = ''
-  nodeError.value = ''
-  nodeResolving.value = true
-  try {
-    const all = await listNodes(product.location)
-    // available_slots === 0 means unlimited; > 0 means remaining capacity
-    const available = all.filter(n => n.enabled && (n.total_slots === -1 || n.available_slots > 0))
-    if (available.length > 0) {
-      resolvedNodeID.value = available[0].id
-    } else {
-      nodeError.value = 'No available nodes in this location. Please try another location.'
-    }
-  } catch {
-    nodeError.value = 'Failed to resolve node. Please try again.'
-  } finally {
-    nodeResolving.value = false
-  }
 }
 
-function goBackToLocations() {
-  selectedLocation.value = null
+function goBackToGroups() {
+  selectedGroup.value = null
   selectedProduct.value = null
-  resolvedNodeID.value = ''
-  nodeError.value = ''
   step.value = 1
 }
 
 function goBackToSpecs() {
   selectedProduct.value = null
-  resolvedNodeID.value = ''
-  nodeError.value = ''
   step.value = 2
 }
 
@@ -204,7 +174,7 @@ function formatCycleShort(cycle) {
 // ── Submit ──
 
 const canSubmit = computed(() => {
-  return form.hostname && selectedProduct.value && resolvedNodeID.value && form.os && form.currency && !nodeResolving.value
+  return form.hostname && selectedProduct.value && form.os && form.currency
 })
 
 async function handleSubmit() {
@@ -217,6 +187,7 @@ async function handleSubmit() {
     const product = selectedProduct.value
 
     const order = await createOrder({
+      productID: product.id,
       currency: form.currency,
       priceAmount: product.price_amount,
       hostname: form.hostname,
@@ -228,18 +199,8 @@ async function handleSubmit() {
       diskGB: product.disk_gb
     })
 
-    const instance = await purchaseInstance({
-      orderID: order.id,
-      nodeID: resolvedNodeID.value,
-      hostname: form.hostname,
-      plan: product.slug,
-      os: form.os,
-      cpu: product.cpu,
-      memoryMB: product.memory_mb,
-      diskGB: product.disk_gb
-    })
-
-    router.push(`/instances/${instance.id}`)
+    // Redirect to checkout/payment page instead of purchasing directly
+    router.push(`/orders/${order.id}/checkout`)
   } catch (err) {
     error.value = err.message
     step.value = prevStep
@@ -258,15 +219,15 @@ async function handleSubmit() {
       </header>
 
       <!-- Loading -->
-      <div v-if="productsLoading || regionsLoading" class="glass-card products-loading">
+      <div v-if="productsLoading || groupsLoading" class="glass-card products-loading">
         <div class="spinner"></div>
         <span>Loading available plans...</span>
       </div>
 
       <!-- Error -->
-      <div v-else-if="productsError || regionsError" class="glass-card products-error">
-        <p>{{ productsError || regionsError }}</p>
-        <button class="action-btn secondary-btn small-btn" @click="productsLoading = true; regionsLoading = true; Promise.allSettled([listRegions(), listProducts()]).then(([r, p]) => { if (r.status === 'fulfilled') { regions = r.value; regionsError = '' } else { regionsError = r.reason?.message } if (p.status === 'fulfilled') { products = p.value; productsError = '' } else { productsError = p.reason?.message } }).finally(() => { productsLoading = false; regionsLoading = false })">Retry</button>
+      <div v-else-if="productsError || groupsError" class="glass-card products-error">
+        <p>{{ productsError || groupsError }}</p>
+        <button class="action-btn secondary-btn small-btn" @click="productsLoading = true; groupsLoading = true; Promise.allSettled([listGroups(), listProducts()]).then(([g, p]) => { if (g.status === 'fulfilled') { groups = g.value; groupsError = '' } else { groupsError = g.reason?.message } if (p.status === 'fulfilled') { products = p.value; productsError = '' } else { productsError = p.reason?.message } }).finally(() => { productsLoading = false; groupsLoading = false })">Retry</button>
       </div>
 
       <!-- No products -->
@@ -278,37 +239,35 @@ async function handleSubmit() {
       <!-- Main flow -->
       <template v-else>
 
-        <!-- ─── Step 1: Choose Location ─── -->
+        <!-- ─── Step 1: Choose Group ─── -->
         <section class="section glass-card" :class="{ dimmed: step > 1 && step < 4 }">
           <div class="section-head">
             <span class="step-num" :class="{ done: step > 1 }">{{ step > 1 ? '✓' : '1' }}</span>
-            <h2>Choose a Location</h2>
-            <button v-if="step > 1" class="change-btn" @click="goBackToLocations">Change</button>
+            <h2>Choose a Category</h2>
+            <button v-if="step > 1" class="change-btn" @click="goBackToGroups">Change</button>
           </div>
 
-          <!-- Selected location pill (collapsed) -->
-          <div v-if="step > 1 && selectedLocation" class="chosen-pill">
-            <span class="chosen-flag">{{ locationDisplay(selectedLocation).flag }}</span>
-            <span class="chosen-label">{{ locationDisplay(selectedLocation).city }}</span>
-            <span class="chosen-code">{{ selectedLocation }}</span>
+          <!-- Selected group pill (collapsed) -->
+          <div v-if="step > 1 && selectedGroup" class="chosen-pill">
+            <span class="chosen-label">{{ groupDisplay(selectedGroup).name }}</span>
+            <span v-if="groupDisplay(selectedGroup).description" class="chosen-code">{{ groupDisplay(selectedGroup).description }}</span>
           </div>
 
-          <!-- Location cards -->
+          <!-- Group cards -->
           <div v-if="step === 1" class="location-grid">
             <div
-              v-for="group in locationGroups"
-              :key="group.location"
+              v-for="entry in groupEntries"
+              :key="entry.groupID"
               class="location-card"
-              @click="selectLocation(group.location)"
+              @click="selectGroup(entry.groupID)"
             >
-              <div class="loc-flag">{{ locationDisplay(group.location).flag }}</div>
               <div class="loc-info">
-                <div class="loc-city">{{ locationDisplay(group.location).city }}</div>
-                <div class="loc-country">{{ locationDisplay(group.location).country }}</div>
+                <div class="loc-city">{{ groupDisplay(entry.groupID).name }}</div>
+                <div class="loc-country">{{ groupDisplay(entry.groupID).description }}</div>
               </div>
               <div class="loc-meta">
-                <span class="loc-plans">{{ group.products.length }} {{ group.products.length === 1 ? 'plan' : 'plans' }}</span>
-                <span class="loc-from">from {{ formatPrice(group.minPrice, group.minCurrency) }}{{ formatCycleShort(group.minCycle) }}</span>
+                <span class="loc-plans">{{ entry.products.length }} {{ entry.products.length === 1 ? 'plan' : 'plans' }}</span>
+                <span class="loc-from">from {{ formatPrice(entry.minPrice, entry.minCurrency) }}{{ formatCycleShort(entry.minCycle) }}</span>
               </div>
             </div>
           </div>
@@ -332,7 +291,7 @@ async function handleSubmit() {
           <!-- Spec cards -->
           <div v-if="step === 2" class="plan-grid">
             <div
-              v-for="product in locationProducts"
+              v-for="product in groupProducts"
               :key="product.id"
               class="plan-card"
               :class="{ selected: selectedProduct?.id === product.id }"
@@ -371,12 +330,6 @@ async function handleSubmit() {
 
           <div v-if="error" class="form-error">{{ error }}</div>
 
-          <div v-if="nodeResolving" class="node-resolving">
-            <div class="spinner small"></div>
-            <span>Finding best available node...</span>
-          </div>
-          <div v-else-if="nodeError" class="form-error">{{ nodeError }}</div>
-
           <form class="config-form" @submit.prevent="handleSubmit">
             <div class="form-row">
               <div class="form-group">
@@ -406,8 +359,8 @@ async function handleSubmit() {
               <h3>Instance Summary</h3>
               <div class="summary-grid">
                 <div class="summary-row">
-                  <span class="summary-label">Location</span>
-                  <span class="summary-value">{{ locationDisplay(selectedLocation).flag }} {{ locationDisplay(selectedLocation).city }}</span>
+                  <span class="summary-label">Category</span>
+                  <span class="summary-value">{{ groupDisplay(selectedGroup).name }}</span>
                 </div>
                 <div class="summary-row">
                   <span class="summary-label">Plan</span>
@@ -433,7 +386,7 @@ async function handleSubmit() {
             </div>
 
             <button class="action-btn primary-btn submit-btn" type="submit" :disabled="!canSubmit || loading">
-              {{ loading ? 'Deploying...' : 'Deploy Instance' }}
+              {{ loading ? 'Creating Order...' : 'Proceed to Payment' }}
             </button>
           </form>
         </section>
@@ -443,7 +396,7 @@ async function handleSubmit() {
       <!-- Step 4: Deploying overlay -->
       <div v-if="step === 4 && loading" class="deploying-overlay glass-card">
         <div class="spinner"></div>
-        <p>Provisioning your instance...</p>
+        <p>Creating your order...</p>
       </div>
     </div>
   </AppLayout>

@@ -1,42 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
-import { getToken } from './auth'
-
-function authHeaders() {
-  const token = getToken()
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
-  }
-}
-
-function getErrorMessage(data, fallback) {
-  if (!data) return fallback
-  if (typeof data === 'string') return data
-  if (typeof data.error === 'string') return data.error
-  if (typeof data.message === 'string') return data.message
-  return fallback
-}
-
-async function request(method, path, body = null, auth = true) {
-  const headers = auth ? authHeaders() : { 'Content-Type': 'application/json' }
-  const opts = { method, headers }
-  if (body) opts.body = JSON.stringify(body)
-
-  const response = await fetch(`${API_BASE_URL}${path}`, opts)
-
-  let data = null
-  try {
-    data = await response.json()
-  } catch {
-    data = null
-  }
-
-  if (!response.ok) {
-    throw new Error(getErrorMessage(data, 'Request failed'))
-  }
-
-  return data
-}
+import { request } from './request'
 
 // ---- Products API (public, returns enabled/on-sale products) ----
 
@@ -57,6 +19,13 @@ export async function listRegions() {
   return res.data || []
 }
 
+// ---- Product Group API (public, no JWT) ----
+
+export async function listGroups() {
+  const res = await request('GET', '/api/v1/groups', null, false)
+  return res.data || []
+}
+
 export async function listNodes(location) {
   const qs = location ? `?location=${encodeURIComponent(location)}` : ''
   const res = await request('GET', `/api/v1/nodes${qs}`, null, false)
@@ -70,8 +39,9 @@ export async function getNode(id) {
 
 // ---- Order API (used internally for instance purchase flow) ----
 
-export async function createOrder({ currency, priceAmount, hostname, plan, region, os, cpu, memoryMB, diskGB }) {
+export async function createOrder({ productID, currency, priceAmount, hostname, plan, region, os, cpu, memoryMB, diskGB }) {
   const res = await request('POST', '/api/v1/orders', {
+    product_id: productID,
     currency,
     price_amount: priceAmount,
     hostname, plan, region, os,
@@ -80,13 +50,25 @@ export async function createOrder({ currency, priceAmount, hostname, plan, regio
   return res.data
 }
 
+// GET /orders/:id — get a single order by ID
+export async function getOrder(id) {
+  const res = await request('GET', `/api/v1/orders/${id}`)
+  return res.data
+}
+
+// POST /orders/:id/pay — initiate payment for a pending order
+export async function payOrder(id) {
+  const res = await request('POST', `/api/v1/orders/${id}/pay`)
+  return res.data
+}
+
 // ---- Instance API (matches backend /api/v1/instances) ----
 
 // POST /instances — purchase a new instance (customer_id from JWT)
-export async function purchaseInstance({ orderID, nodeID, hostname, plan, os, cpu, memoryMB, diskGB }) {
+export async function purchaseInstance({ orderID, region, hostname, plan, os, cpu, memoryMB, diskGB }) {
   const res = await request('POST', '/api/v1/instances', {
     order_id: orderID,
-    node_id: nodeID,
+    region,
     hostname,
     plan,
     os,

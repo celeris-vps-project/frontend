@@ -5,6 +5,7 @@ import DashboardView from '../views/DashboardView.vue'
 import InstancesView from '../views/InstancesView.vue'
 import InstanceDetailView from '../views/InstanceDetailView.vue'
 import NewInstanceView from '../views/NewInstanceView.vue'
+import CheckoutView from '../views/CheckoutView.vue'
 import AdminDashboardView from '../views/admin/AdminDashboardView.vue'
 import AdminNodesView from '../views/admin/AdminNodesView.vue'
 import AdminNodeDetailView from '../views/admin/AdminNodeDetailView.vue'
@@ -12,6 +13,9 @@ import AdminCreateNodeView from '../views/admin/AdminCreateNodeView.vue'
 import AdminProductsView from '../views/admin/AdminProductsView.vue'
 import AdminCreateProductView from '../views/admin/AdminCreateProductView.vue'
 import AdminProductDetailView from '../views/admin/AdminProductDetailView.vue'
+import AdminResourcePoolsView from '../views/admin/AdminResourcePoolsView.vue'
+import AdminCreateResourcePoolView from '../views/admin/AdminCreateResourcePoolView.vue'
+import AdminResourcePoolDetailView from '../views/admin/AdminResourcePoolDetailView.vue'
 import { getToken, getRole } from '../api/auth'
 
 const routes = [
@@ -22,6 +26,7 @@ const routes = [
   { path: '/instances', name: 'instances', component: InstancesView, meta: { auth: true } },
   { path: '/instances/new', name: 'new-instance', component: NewInstanceView, meta: { auth: true } },
   { path: '/instances/:id', name: 'instance-detail', component: InstanceDetailView, meta: { auth: true } },
+  { path: '/orders/:id/checkout', name: 'checkout', component: CheckoutView, meta: { auth: true } },
 
   // Admin routes
   { path: '/admin', name: 'admin-dashboard', component: AdminDashboardView, meta: { auth: true, admin: true } },
@@ -32,7 +37,12 @@ const routes = [
   // Admin product routes
   { path: '/admin/products', name: 'admin-products', component: AdminProductsView, meta: { auth: true, admin: true } },
   { path: '/admin/products/new', name: 'admin-create-product', component: AdminCreateProductView, meta: { auth: true, admin: true } },
-  { path: '/admin/products/:id', name: 'admin-product-detail', component: AdminProductDetailView, meta: { auth: true, admin: true } }
+  { path: '/admin/products/:id', name: 'admin-product-detail', component: AdminProductDetailView, meta: { auth: true, admin: true } },
+
+  // Admin resource pool routes
+  { path: '/admin/resource-pools', name: 'admin-resource-pools', component: AdminResourcePoolsView, meta: { auth: true, admin: true } },
+  { path: '/admin/resource-pools/new', name: 'admin-create-resource-pool', component: AdminCreateResourcePoolView, meta: { auth: true, admin: true } },
+  { path: '/admin/resource-pools/:id', name: 'admin-resource-pool-detail', component: AdminResourcePoolDetailView, meta: { auth: true, admin: true } }
 ]
 
 const router = createRouter({

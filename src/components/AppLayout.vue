@@ -12,7 +12,6 @@ const showAdmin = computed(() => isAdmin())
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: '⬡' },
   { path: '/instances', label: 'Instances', icon: '◈' },
-  { path: '/instances/new', label: 'New Instance', icon: '✦' }
 ]
 
 function isActive(path) {

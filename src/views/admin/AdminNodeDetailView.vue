@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../components/AdminLayout.vue'
 import NodeStatusBadge from '../../components/NodeStatusBadge.vue'
@@ -9,9 +9,14 @@ import {
   addIP,
   enqueueTask,
   listAllProducts,
+  enableHostNode,
+  disableHostNode,
+  revokeNodeToken,
+  createNodeBootstrapToken,
   formatPercent,
   formatDateTime
 } from '../../api/admin'
+import { useNodeStatusWS } from '../../api/ws'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,6 +27,27 @@ const ips = ref([])
 const products = ref([])
 const loading = ref(true)
 const error = ref('')
+
+// Real-time WebSocket updates
+const { nodeStates } = useNodeStatusWS()
+
+// Merge WebSocket state into the fetched node data
+const liveNode = computed(() => {
+  if (!node.value) return null
+  const ws = nodeStates[node.value.id]
+  if (!ws) return node.value
+  return {
+    ...node.value,
+    status: ws.status ?? node.value.status,
+    cpu_usage: ws.cpu_usage ?? node.value.cpu_usage,
+    mem_usage: ws.mem_usage ?? node.value.mem_usage,
+    disk_usage: ws.disk_usage ?? node.value.disk_usage,
+    vm_count: ws.vm_count ?? node.value.vm_count,
+    ip: ws.ip || node.value.ip,
+    agent_ver: ws.agent_ver || node.value.agent_ver,
+    last_seen_at: ws.last_seen_at || node.value.last_seen_at,
+  }
+})
 
 // -- Add IP form --
 const showAddIP = ref(false)
@@ -118,6 +144,72 @@ async function handleEnqueueTask() {
 
 const taskTypes = ['provision', 'deprovision', 'start', 'stop', 'reboot', 'suspend', 'unsuspend']
 
+// -- Enable / Disable --
+const toggleLoading = ref(false)
+
+async function handleToggleEnabled() {
+  toggleLoading.value = true
+  try {
+    const updated = liveNode.value?.enabled
+      ? await disableHostNode(nodeID)
+      : await enableHostNode(nodeID)
+    node.value = updated
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    toggleLoading.value = false
+  }
+}
+
+// -- Bootstrap Token --
+const showBtForm = ref(false)
+const btLoading = ref(false)
+const btError = ref('')
+const btResult = ref(null)
+const btTTL = ref(1440)
+
+async function handleCreateBootstrapToken() {
+  btError.value = ''
+  btResult.value = null
+  btLoading.value = true
+  try {
+    const bt = await createNodeBootstrapToken(nodeID, {
+      ttl_minutes: btTTL.value,
+      description: `Re-bootstrap for node ${liveNode.value?.code || nodeID}`
+    })
+    btResult.value = bt
+  } catch (err) {
+    btError.value = err.message
+  } finally {
+    btLoading.value = false
+  }
+}
+
+function copyBootstrapToken() {
+  if (btResult.value?.token) {
+    navigator.clipboard.writeText(btResult.value.token)
+  }
+}
+
+// -- Revoke Node Token --
+const revokeLoading = ref(false)
+const revokeSuccess = ref('')
+
+async function handleRevokeNodeToken() {
+  if (!confirm('Revoke the permanent node token? The agent will disconnect and need a new bootstrap token to reconnect.')) return
+  revokeLoading.value = true
+  revokeSuccess.value = ''
+  try {
+    await revokeNodeToken(nodeID)
+    revokeSuccess.value = 'Node token revoked. Agent will be disconnected.'
+    await fetchAll()
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    revokeLoading.value = false
+  }
+}
+
 function formatPrice(amount, currency) {
   return `${currency.toUpperCase()} ${(amount / 100).toFixed(2)}`
 }
@@ -148,35 +240,120 @@ function goToProduct(id) {
         <button class="action-btn secondary-btn small-btn" @click="fetchAll">Retry</button>
       </div>
 
-      <template v-else-if="node">
+      <template v-else-if="liveNode">
         <!-- Node Header -->
         <header class="node-header">
           <div>
-            <h1 class="page-title">{{ node.code }}</h1>
-            <p class="page-subtitle">{{ node.name }} — {{ node.location }}</p>
+            <h1 class="page-title">{{ liveNode.code }}</h1>
+            <p class="page-subtitle">{{ liveNode.name }} — {{ liveNode.location }}</p>
           </div>
-          <NodeStatusBadge :status="node.status" />
+          <NodeStatusBadge :status="liveNode.status" />
         </header>
 
         <!-- Info Cards -->
         <div class="info-grid">
           <div class="info-card glass-card">
             <span class="info-label">IP Address</span>
-            <span class="info-value mono">{{ node.ip || '—' }}</span>
+            <span class="info-value mono">{{ liveNode.ip || '—' }}</span>
           </div>
           <div class="info-card glass-card">
             <span class="info-label">Agent Version</span>
-            <span class="info-value">{{ node.agent_ver || '—' }}</span>
+            <span class="info-value">{{ liveNode.agent_ver || '—' }}</span>
           </div>
           <div class="info-card glass-card">
             <span class="info-label">VMs Running</span>
-            <span class="info-value">{{ node.vm_count }}</span>
+            <span class="info-value">{{ liveNode.vm_count }}</span>
           </div>
           <div class="info-card glass-card">
             <span class="info-label">Last Seen</span>
-            <span class="info-value">{{ node.last_seen_at ? formatDateTime(node.last_seen_at) : '—' }}</span>
+            <span class="info-value">{{ liveNode.last_seen_at ? formatDateTime(liveNode.last_seen_at) : '—' }}</span>
           </div>
         </div>
+
+        <!-- Capacity & Node Management -->
+        <section class="mgmt-section glass-card">
+          <h2>Capacity & Management</h2>
+          <div class="mgmt-grid">
+            <div class="mgmt-item">
+              <span class="mgmt-label">Total Slots</span>
+              <span class="mgmt-value">{{ liveNode.total_slots }}</span>
+            </div>
+            <div class="mgmt-item">
+              <span class="mgmt-label">Used Slots</span>
+              <span class="mgmt-value">{{ liveNode.used_slots }}</span>
+            </div>
+            <div class="mgmt-item">
+              <span class="mgmt-label">Available Slots</span>
+              <span class="mgmt-value" :class="{ 'val-warn': liveNode.available_slots === 0 }">{{ liveNode.available_slots }}</span>
+            </div>
+            <div class="mgmt-item">
+              <span class="mgmt-label">Status</span>
+              <span class="mgmt-value">
+                <span class="status-badge" :class="liveNode.enabled ? 'enabled' : 'disabled'">
+                  {{ liveNode.enabled ? 'Enabled' : 'Disabled' }}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div class="mgmt-actions">
+            <button
+              class="action-btn small-btn"
+              :class="liveNode.enabled ? 'danger-btn' : 'primary-btn'"
+              :disabled="toggleLoading"
+              @click="handleToggleEnabled"
+            >
+              {{ toggleLoading ? '...' : (liveNode.enabled ? 'Disable Node' : 'Enable Node') }}
+            </button>
+            <button
+              class="action-btn secondary-btn small-btn"
+              :disabled="revokeLoading"
+              @click="handleRevokeNodeToken"
+            >
+              {{ revokeLoading ? '...' : 'Revoke Node Token' }}
+            </button>
+            <button
+              class="action-btn accent-btn small-btn"
+              @click="showBtForm = !showBtForm"
+            >
+              {{ showBtForm ? 'Cancel' : 'New Bootstrap Token' }}
+            </button>
+          </div>
+
+          <p v-if="revokeSuccess" class="form-success">{{ revokeSuccess }}</p>
+
+          <!-- Bootstrap Token Form -->
+          <div v-if="showBtForm" class="inline-form" style="margin-top: 1rem;">
+            <div class="form-row">
+              <label style="color: rgba(255,255,255,0.5); font-size: 0.8rem;">TTL</label>
+              <select v-model.number="btTTL" class="form-select">
+                <option :value="60">1 hour</option>
+                <option :value="360">6 hours</option>
+                <option :value="1440">24 hours</option>
+                <option :value="4320">3 days</option>
+                <option :value="10080">7 days</option>
+              </select>
+              <button class="action-btn primary-btn small-btn" :disabled="btLoading" @click="handleCreateBootstrapToken">
+                {{ btLoading ? 'Generating...' : 'Generate' }}
+              </button>
+            </div>
+            <p v-if="btError" class="form-error">{{ btError }}</p>
+            <div v-if="btResult" class="bt-result">
+              <p class="form-success">Bootstrap token created. Copy it now — it will not be shown again.</p>
+              <div class="token-box">
+                <code class="token-value">{{ btResult.token }}</code>
+                <button type="button" class="action-btn secondary-btn small-btn" @click="copyBootstrapToken">Copy</button>
+              </div>
+              <p class="bt-meta">Expires: {{ formatDateTime(btResult.expires_at) }}</p>
+              <div class="token-yaml-hint">
+                <p class="hint-label">agent.yaml:</p>
+                <pre class="yaml-block">bootstrap_token: "{{ btResult.token }}"
+grpc_address: "controller:50051"
+credential_file: "node-credential.yaml"</pre>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <!-- Usage -->
         <section class="usage-section glass-card">
@@ -184,18 +361,18 @@ function goToProduct(id) {
           <div class="usage-bars">
             <div class="usage-row">
               <span class="usage-label">CPU</span>
-              <div class="bar-track"><div class="bar-fill cpu-fill" :style="{ width: `${node.cpu_usage}%` }"></div></div>
-              <span class="usage-val">{{ formatPercent(node.cpu_usage) }}</span>
+              <div class="bar-track"><div class="bar-fill cpu-fill" :style="{ width: `${liveNode.cpu_usage}%` }"></div></div>
+              <span class="usage-val">{{ formatPercent(liveNode.cpu_usage) }}</span>
             </div>
             <div class="usage-row">
               <span class="usage-label">Memory</span>
-              <div class="bar-track"><div class="bar-fill mem-fill" :style="{ width: `${node.mem_usage}%` }"></div></div>
-              <span class="usage-val">{{ formatPercent(node.mem_usage) }}</span>
+              <div class="bar-track"><div class="bar-fill mem-fill" :style="{ width: `${liveNode.mem_usage}%` }"></div></div>
+              <span class="usage-val">{{ formatPercent(liveNode.mem_usage) }}</span>
             </div>
             <div class="usage-row">
               <span class="usage-label">Disk</span>
-              <div class="bar-track"><div class="bar-fill disk-fill" :style="{ width: `${node.disk_usage}%` }"></div></div>
-              <span class="usage-val">{{ formatPercent(node.disk_usage) }}</span>
+              <div class="bar-track"><div class="bar-fill disk-fill" :style="{ width: `${liveNode.disk_usage}%` }"></div></div>
+              <span class="usage-val">{{ formatPercent(liveNode.disk_usage) }}</span>
             </div>
           </div>
         </section>
@@ -250,109 +427,6 @@ function goToProduct(id) {
           </table>
         </section>
 
-        <!-- Products for this location -->
-        <section class="products-section glass-card">
-          <div class="section-header">
-            <h2>Products — {{ node.location }} ({{ products.length }})</h2>
-            <router-link to="/admin/products/new" class="action-btn accent-btn small-btn">+ New Product</router-link>
-          </div>
-
-          <div v-if="products.length === 0" class="empty-inline">No products configured for this location.</div>
-
-          <div v-else class="node-product-list">
-            <div
-              v-for="p in products"
-              :key="p.id"
-              class="node-product-card"
-              @click="goToProduct(p.id)"
-            >
-              <div class="np-top">
-                <div class="np-name-col">
-                  <span class="np-name">{{ p.name }}</span>
-                  <span class="np-slug">{{ p.slug }}</span>
-                </div>
-                <span class="status-badge" :class="p.enabled ? 'enabled' : 'disabled'">
-                  {{ p.enabled ? 'On Sale' : 'Disabled' }}
-                </span>
-              </div>
-              <div class="np-specs">
-                <span>{{ p.cpu }} vCPU</span>
-                <span>{{ p.memory_mb >= 1024 ? (p.memory_mb / 1024) + ' GB' : p.memory_mb + ' MB' }} RAM</span>
-                <span>{{ p.disk_gb }} GB Disk</span>
-              </div>
-              <div class="np-bottom">
-                <span class="np-price">{{ formatPrice(p.price_amount, p.currency) }}{{ formatCycle(p.billing_cycle) }}</span>
-                <span class="np-stock">
-                  <span class="np-stock-avail">{{ p.available_slots }}</span> / {{ p.total_slots }} slots
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Enqueue Task -->
-        <section class="task-section glass-card">
-          <div class="section-header">
-            <h2>Enqueue Task</h2>
-            <button class="action-btn accent-btn small-btn" @click="showTaskForm = !showTaskForm">
-              {{ showTaskForm ? 'Cancel' : '+ New Task' }}
-            </button>
-          </div>
-
-          <div v-if="showTaskForm" class="task-form">
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Task Type</label>
-                <select v-model="taskForm.type" class="form-select">
-                  <option v-for="t in taskTypes" :key="t" :value="t">{{ t }}</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Instance ID</label>
-                <input v-model="taskForm.spec.instance_id" type="text" class="form-input" placeholder="inst-xxx" />
-              </div>
-              <div class="form-group">
-                <label>Hostname</label>
-                <input v-model="taskForm.spec.hostname" type="text" class="form-input" placeholder="web-01" />
-              </div>
-              <div class="form-group">
-                <label>OS Image</label>
-                <input v-model="taskForm.spec.os" type="text" class="form-input" />
-              </div>
-              <div class="form-group">
-                <label>CPU</label>
-                <input v-model.number="taskForm.spec.cpu" type="number" min="1" class="form-input" />
-              </div>
-              <div class="form-group">
-                <label>Memory (MB)</label>
-                <input v-model.number="taskForm.spec.memory_mb" type="number" min="256" class="form-input" />
-              </div>
-              <div class="form-group">
-                <label>Disk (GB)</label>
-                <input v-model.number="taskForm.spec.disk_gb" type="number" min="5" class="form-input" />
-              </div>
-              <div class="form-group">
-                <label>Virt Type</label>
-                <select v-model="taskForm.spec.virt_type" class="form-select">
-                  <option value="kvm">KVM</option>
-                  <option value="lxc">LXC</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button
-                class="action-btn primary-btn small-btn"
-                :disabled="taskLoading"
-                @click="handleEnqueueTask"
-              >
-                {{ taskLoading ? 'Sending...' : 'Enqueue Task' }}
-              </button>
-            </div>
-            <p v-if="taskError" class="form-error">{{ taskError }}</p>
-            <p v-if="taskSuccess" class="form-success">{{ taskSuccess }}</p>
-          </div>
-        </section>
       </template>
     </div>
   </AdminLayout>
@@ -485,6 +559,130 @@ function goToProduct(id) {
 .ips-section, .task-section {
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+/* Management section */
+.mgmt-section {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.mgmt-section h2 { margin: 0 0 1rem; font-size: 1.1rem; color: #fff; }
+
+.mgmt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.mgmt-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mgmt-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.mgmt-value {
+  font-size: 1.25rem;
+  color: #fff;
+  font-weight: 700;
+}
+.mgmt-value.val-warn { color: #f87171; }
+
+.mgmt-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.danger-btn {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #f87171 !important;
+}
+.danger-btn:hover {
+  background: rgba(239, 68, 68, 0.25) !important;
+}
+
+.bt-result {
+  margin-top: 0.75rem;
+}
+
+.token-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.token-value {
+  flex: 1;
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.85);
+  word-break: break-all;
+}
+
+.bt-meta {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0.25rem 0 0;
+}
+
+.token-yaml-hint {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.hint-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.yaml-block {
+  margin: 0;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.7);
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+.status-badge {
+  display: inline-flex;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.status-badge.enabled {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.status-badge.disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .section-header {
@@ -674,25 +872,6 @@ function goToProduct(id) {
 .np-name { font-weight: 700; color: #fff; font-size: 0.95rem; }
 .np-slug { font-size: 0.72rem; color: rgba(255, 255, 255, 0.4); font-family: monospace; }
 
-.status-badge {
-  display: inline-flex;
-  padding: 0.15rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.status-badge.enabled {
-  background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.2);
-}
-.status-badge.disabled {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
 
 .np-specs {
   display: flex;
