@@ -1,7 +1,7 @@
 /**
  * Admin API — talks to /api/v1/admin/* endpoints (requires admin JWT).
  */
-import { request } from './request'
+import { request, API_BASE_URL, authHeaders } from './request'
 
 // ---- Current user ----
 
@@ -143,10 +143,23 @@ export async function removeNodeFromPool(poolId, nodeId) {
  * Fetch a short-lived, one-time ticket for WebSocket authentication.
  * The JWT is sent via the normal Authorization header; the backend validates
  * the admin role and returns a ticket string.
+ *
+ * Uses fetch directly (bypasses global 401 interceptor in request.js) because
+ * the WS ticket is non-critical — a failure here should NOT clear auth state
+ * or trigger a login redirect.
  */
 export async function fetchWsTicket() {
-  const res = await request('POST', '/api/v1/admin/ws/ticket')
-  return res.ticket
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/admin/ws/ticket`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    if (!response.ok) return null
+    const data = await response.json()
+    return data.ticket ?? null
+  } catch {
+    return null
+  }
 }
 
 // ---- Products (admin management) ----

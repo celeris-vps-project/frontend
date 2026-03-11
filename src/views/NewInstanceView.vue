@@ -4,14 +4,14 @@ import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import {
   listProducts,
-  listGroups,
+  listProductLines,
   createOrder
 } from '../api/billing.js'
 
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
-const step = ref(1) // 1: pick group, 2: pick specs, 3: configure & deploy
+const step = ref(1) // 1: pick product line, 2: pick specs, 3: configure & deploy
 
 const form = reactive({
   hostname: '',
@@ -24,27 +24,27 @@ const products = ref([])
 const productsLoading = ref(true)
 const productsError = ref('')
 
-const groups = ref([])
-const groupsLoading = ref(true)
-const groupsError = ref('')
+const productLines = ref([])
+const linesLoading = ref(true)
+const linesError = ref('')
 
-const selectedGroup = ref(null)
+const selectedLine = ref(null)
 const selectedProduct = ref(null)
 
 onMounted(async () => {
-  // Load groups and products in parallel
-  const [groupsResult, productsResult] = await Promise.allSettled([
-    listGroups(),
+  // Load product lines and products in parallel
+  const [linesResult, productsResult] = await Promise.allSettled([
+    listProductLines(),
     listProducts()
   ])
 
-  if (groupsResult.status === 'fulfilled') {
-    groups.value = groupsResult.value
+  if (linesResult.status === 'fulfilled') {
+    productLines.value = linesResult.value
   } else {
-    groupsError.value = groupsResult.reason?.message || 'Failed to load groups'
-    groups.value = []
+    linesError.value = linesResult.reason?.message || 'Failed to load product lines'
+    productLines.value = []
   }
-  groupsLoading.value = false
+  linesLoading.value = false
 
   if (productsResult.status === 'fulfilled') {
     products.value = productsResult.value
@@ -55,62 +55,37 @@ onMounted(async () => {
   productsLoading.value = false
 })
 
-// ── Computed: build a lookup map from groups by id ──
+// ── Computed: build a lookup map from product lines by id ──
 
-const groupByID = computed(() => {
+const lineByID = computed(() => {
   const map = {}
-  for (const g of groups.value) {
-    map[g.id] = g
+  for (const l of productLines.value) {
+    map[l.id] = l
   }
   return map
 })
 
-// ── Computed: group products by group_id ──
+// ── Computed: products for the selected product line (resource pool) ──
 
-const groupEntries = computed(() => {
-  const map = {}
-  for (const p of products.value) {
-    const gid = p.group_id || 'ungrouped'
-    if (!map[gid]) {
-      map[gid] = { groupID: gid, products: [], minPrice: Infinity, minCurrency: '', minCycle: '' }
-    }
-    map[gid].products.push(p)
-    if (p.price_amount < map[gid].minPrice) {
-      map[gid].minPrice = p.price_amount
-      map[gid].minCurrency = p.currency
-      map[gid].minCycle = p.billing_cycle
-    }
-  }
-  // Sort by group sort_order (from the groups API), then name
-  return Object.values(map).sort((a, b) => {
-    const ga = groupByID.value[a.groupID]
-    const gb = groupByID.value[b.groupID]
-    const orderA = ga ? ga.sort_order : 999
-    const orderB = gb ? gb.sort_order : 999
-    return orderA - orderB
-  })
+const lineProducts = computed(() => {
+  if (!selectedLine.value) return []
+  return products.value.filter(p => p.resource_pool_id === selectedLine.value)
 })
 
-const groupProducts = computed(() => {
-  if (!selectedGroup.value) return []
-  const entry = groupEntries.value.find(g => g.groupID === selectedGroup.value)
-  return entry ? entry.products : []
-})
+// ── Product line display helper ──
 
-// ── Group display helper ──
-
-function groupDisplay(groupID) {
-  const group = groupByID.value[groupID]
-  if (group) {
-    return { name: group.name, description: group.description }
+function lineDisplay(lineID) {
+  const line = lineByID.value[lineID]
+  if (line) {
+    return { name: line.name, description: line.description, flag: line.flag_icon, regionName: line.region_name }
   }
-  return { name: groupID, description: '' }
+  return { name: lineID, description: '', flag: '', regionName: '' }
 }
 
 // ── Selection handlers ──
 
-function selectGroup(groupID) {
-  selectedGroup.value = groupID
+function selectLine(lineID) {
+  selectedLine.value = lineID
   selectedProduct.value = null
   step.value = 2
 }
@@ -120,8 +95,8 @@ function selectSpec(product) {
   step.value = 3
 }
 
-function goBackToGroups() {
-  selectedGroup.value = null
+function goBackToLines() {
+  selectedLine.value = null
   selectedProduct.value = null
   step.value = 1
 }
@@ -219,15 +194,15 @@ async function handleSubmit() {
       </header>
 
       <!-- Loading -->
-      <div v-if="productsLoading || groupsLoading" class="glass-card products-loading">
+      <div v-if="productsLoading || linesLoading" class="glass-card products-loading">
         <div class="spinner"></div>
         <span>Loading available plans...</span>
       </div>
 
       <!-- Error -->
-      <div v-else-if="productsError || groupsError" class="glass-card products-error">
-        <p>{{ productsError || groupsError }}</p>
-        <button class="action-btn secondary-btn small-btn" @click="productsLoading = true; groupsLoading = true; Promise.allSettled([listGroups(), listProducts()]).then(([g, p]) => { if (g.status === 'fulfilled') { groups = g.value; groupsError = '' } else { groupsError = g.reason?.message } if (p.status === 'fulfilled') { products = p.value; productsError = '' } else { productsError = p.reason?.message } }).finally(() => { productsLoading = false; groupsLoading = false })">Retry</button>
+      <div v-else-if="productsError || linesError" class="glass-card products-error">
+        <p>{{ productsError || linesError }}</p>
+        <button class="action-btn secondary-btn small-btn" @click="productsLoading = true; linesLoading = true; Promise.allSettled([listProductLines(), listProducts()]).then(([l, p]) => { if (l.status === 'fulfilled') { productLines = l.value; linesError = '' } else { linesError = l.reason?.message } if (p.status === 'fulfilled') { products = p.value; productsError = '' } else { productsError = p.reason?.message } }).finally(() => { productsLoading = false; linesLoading = false })">Retry</button>
       </div>
 
       <!-- No products -->
@@ -239,35 +214,37 @@ async function handleSubmit() {
       <!-- Main flow -->
       <template v-else>
 
-        <!-- ─── Step 1: Choose Group ─── -->
+        <!-- ─── Step 1: Choose Product Line ─── -->
         <section class="section glass-card" :class="{ dimmed: step > 1 && step < 4 }">
           <div class="section-head">
             <span class="step-num" :class="{ done: step > 1 }">{{ step > 1 ? '✓' : '1' }}</span>
-            <h2>Choose a Category</h2>
-            <button v-if="step > 1" class="change-btn" @click="goBackToGroups">Change</button>
+            <h2>Choose a Location</h2>
+            <button v-if="step > 1" class="change-btn" @click="goBackToLines">Change</button>
           </div>
 
-          <!-- Selected group pill (collapsed) -->
-          <div v-if="step > 1 && selectedGroup" class="chosen-pill">
-            <span class="chosen-label">{{ groupDisplay(selectedGroup).name }}</span>
-            <span v-if="groupDisplay(selectedGroup).description" class="chosen-code">{{ groupDisplay(selectedGroup).description }}</span>
+          <!-- Selected product line pill (collapsed) -->
+          <div v-if="step > 1 && selectedLine" class="chosen-pill">
+            <span v-if="lineDisplay(selectedLine).flag" class="chosen-flag">{{ lineDisplay(selectedLine).flag }}</span>
+            <span class="chosen-label">{{ lineDisplay(selectedLine).name }}</span>
+            <span v-if="lineDisplay(selectedLine).regionName" class="chosen-code">{{ lineDisplay(selectedLine).regionName }}</span>
           </div>
 
-          <!-- Group cards -->
+          <!-- Product line cards -->
           <div v-if="step === 1" class="location-grid">
             <div
-              v-for="entry in groupEntries"
-              :key="entry.groupID"
+              v-for="line in productLines"
+              :key="line.id"
               class="location-card"
-              @click="selectGroup(entry.groupID)"
+              @click="selectLine(line.id)"
             >
+              <span v-if="line.flag_icon" class="loc-flag">{{ line.flag_icon }}</span>
               <div class="loc-info">
-                <div class="loc-city">{{ groupDisplay(entry.groupID).name }}</div>
-                <div class="loc-country">{{ groupDisplay(entry.groupID).description }}</div>
+                <div class="loc-city">{{ line.name }}</div>
+                <div class="loc-country">{{ line.description || line.region_name }}</div>
               </div>
               <div class="loc-meta">
-                <span class="loc-plans">{{ entry.products.length }} {{ entry.products.length === 1 ? 'plan' : 'plans' }}</span>
-                <span class="loc-from">from {{ formatPrice(entry.minPrice, entry.minCurrency) }}{{ formatCycleShort(entry.minCycle) }}</span>
+                <span class="loc-plans">{{ line.product_count }} {{ line.product_count === 1 ? 'plan' : 'plans' }}</span>
+                <span class="loc-from">from {{ formatPrice(line.min_price, line.min_currency) }}{{ formatCycleShort(line.min_cycle) }}</span>
               </div>
             </div>
           </div>
@@ -291,7 +268,7 @@ async function handleSubmit() {
           <!-- Spec cards -->
           <div v-if="step === 2" class="plan-grid">
             <div
-              v-for="product in groupProducts"
+              v-for="product in lineProducts"
               :key="product.id"
               class="plan-card"
               :class="{ selected: selectedProduct?.id === product.id }"
@@ -359,8 +336,8 @@ async function handleSubmit() {
               <h3>Instance Summary</h3>
               <div class="summary-grid">
                 <div class="summary-row">
-                  <span class="summary-label">Category</span>
-                  <span class="summary-value">{{ groupDisplay(selectedGroup).name }}</span>
+                  <span class="summary-label">Location</span>
+                  <span class="summary-value">{{ lineDisplay(selectedLine).name }}</span>
                 </div>
                 <div class="summary-row">
                   <span class="summary-label">Plan</span>

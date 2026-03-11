@@ -16,6 +16,7 @@ import AdminProductDetailView from '../views/admin/AdminProductDetailView.vue'
 import AdminResourcePoolsView from '../views/admin/AdminResourcePoolsView.vue'
 import AdminCreateResourcePoolView from '../views/admin/AdminCreateResourcePoolView.vue'
 import AdminResourcePoolDetailView from '../views/admin/AdminResourcePoolDetailView.vue'
+import AdminPerformanceView from '../views/admin/AdminPerformanceView.vue'
 import { getToken, getRole } from '../api/auth'
 
 const routes = [
@@ -42,7 +43,10 @@ const routes = [
   // Admin resource pool routes
   { path: '/admin/resource-pools', name: 'admin-resource-pools', component: AdminResourcePoolsView, meta: { auth: true, admin: true } },
   { path: '/admin/resource-pools/new', name: 'admin-create-resource-pool', component: AdminCreateResourcePoolView, meta: { auth: true, admin: true } },
-  { path: '/admin/resource-pools/:id', name: 'admin-resource-pool-detail', component: AdminResourcePoolDetailView, meta: { auth: true, admin: true } }
+  { path: '/admin/resource-pools/:id', name: 'admin-resource-pool-detail', component: AdminResourcePoolDetailView, meta: { auth: true, admin: true } },
+
+  // Admin Performance monitor
+  { path: '/admin/performance', name: 'admin-performance', component: AdminPerformanceView, meta: { auth: true, admin: true } }
 ]
 
 const router = createRouter({

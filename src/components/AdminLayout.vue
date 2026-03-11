@@ -12,6 +12,7 @@ const navItems = [
   { path: '/admin/nodes', label: 'Host Nodes', icon: '⬢' },
   { path: '/admin/resource-pools', label: 'Resource Pools', icon: '◈' },
   { path: '/admin/products', label: 'Products', icon: '◇' },
+  { path: '/admin/performance', label: 'Performance', icon: '📊' },
 ]
 
 function isActive(path) {

@@ -19,10 +19,12 @@ export async function listRegions() {
   return res.data || []
 }
 
-// ---- Product Group API (public, no JWT) ----
+// ---- Product Lines API (public, no JWT) ----
+// Product lines are resource pools enriched with region info and product stats.
+// Replaces the old groups API for customer-facing catalog browsing.
 
-export async function listGroups() {
-  const res = await request('GET', '/api/v1/groups', null, false)
+export async function listProductLines() {
+  const res = await request('GET', '/api/v1/product-lines', null, false)
   return res.data || []
 }
 

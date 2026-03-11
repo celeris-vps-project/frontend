@@ -3,6 +3,7 @@
  * Handles JSON serialisation, auth headers, and 401 → /login redirect.
  */
 import { getToken, clearToken } from './auth'
+import router from '../router'
 
 export const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
@@ -41,9 +42,14 @@ export async function request(method, path, body = null, auth = true) {
 
     // 401 Unauthorized → clear credentials and redirect to login
     if (response.status === 401) {
+        console.warn('[request] 401 on', method, path)
         clearToken()
-        window.location.href = '/login'
-        return // stop further processing
+        // Use Vue Router (soft navigation) instead of window.location.href
+        // to avoid hard page reloads that race with freshly-saved tokens.
+        if (router.currentRoute.value.path !== '/login') {
+            router.replace('/login')
+        }
+        throw new Error('Unauthorized')
     }
 
     let data = null
