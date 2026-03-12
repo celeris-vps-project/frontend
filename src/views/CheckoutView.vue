@@ -15,6 +15,7 @@ const paying = ref(false)
 const payError = ref('')
 const paymentStatus = ref('idle') // idle | processing | confirmed | failed
 const pollTimer = ref(null)
+const invoiceID = ref('') // linked billing invoice ID
 
 // ── Load order on mount ──
 onMounted(async () => {
@@ -75,6 +76,11 @@ async function handlePay() {
 
   try {
     const result = await payOrder(orderID)
+
+    // Capture linked invoice ID from pay response
+    if (result.invoice_id) {
+      invoiceID.value = result.invoice_id
+    }
 
     // Mock provider returns "pending" — we need to poll for the webhook to fire
     if (result.status === 'pending') {
@@ -260,10 +266,18 @@ function goBack() {
             <div class="status-info">
               <p class="status-title">Payment Confirmed!</p>
               <p class="status-desc">Your order has been activated and instance provisioning has been triggered.</p>
+              <p v-if="invoiceID" class="status-desc invoice-link">
+                Invoice: <router-link :to="'/invoices/' + invoiceID" class="invoice-id">{{ invoiceID }}</router-link>
+              </p>
             </div>
-            <button class="action-btn primary-btn" @click="goToInstances">
-              View My Instances →
-            </button>
+            <div class="confirmed-actions">
+              <button class="action-btn primary-btn" @click="goToInstances">
+                View My Instances →
+              </button>
+              <router-link v-if="invoiceID" :to="'/invoices/' + invoiceID" class="action-btn secondary-btn">
+                View Invoice
+              </router-link>
+            </div>
           </div>
 
           <!-- Failed -->
@@ -642,5 +656,29 @@ function goBack() {
 .secondary-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
+}
+
+/* ─── Invoice link & confirmed actions ─── */
+.invoice-link {
+  margin-top: 0.25rem;
+}
+
+.invoice-id {
+  color: #a78bfa;
+  text-decoration: none;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+}
+
+.invoice-id:hover {
+  text-decoration: underline;
+  color: #c4b5fd;
+}
+
+.confirmed-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 </style>
