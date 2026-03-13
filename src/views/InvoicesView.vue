@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
-import { listInvoices, formatMoney, formatDate } from '../api/billing.js'
+import { listInvoices, formatMoney, formatDate, billingCycleLabel } from '../api/billing.js'
 
 const router = useRouter()
 const invoices = ref([])
@@ -11,7 +11,6 @@ const loading = ref(true)
 const error = ref('')
 const filterStatus = ref('all')
 const searchQuery = ref('')
-const customerID = ref('self')
 
 onMounted(fetchInvoices)
 
@@ -19,7 +18,7 @@ async function fetchInvoices() {
   loading.value = true
   error.value = ''
   try {
-    invoices.value = await listInvoices(customerID.value)
+    invoices.value = await listInvoices()
   } catch (err) {
     error.value = err.message
     invoices.value = []
@@ -151,8 +150,14 @@ function goToInvoice(id) {
 
           <div class="invoice-card-bottom">
             <div class="invoice-dates">
+              <span v-if="inv.billing_cycle && inv.billing_cycle !== 'one_time'" class="cycle-badge">
+                {{ billingCycleLabel(inv.billing_cycle) }}
+              </span>
               <span v-if="inv.issued_at">Issued {{ formatDate(inv.issued_at) }}</span>
               <span v-if="inv.due_at" class="due-date">Due {{ formatDate(inv.due_at) }}</span>
+              <span v-if="inv.next_billing_date" class="next-billing">
+                Next billing {{ formatDate(inv.next_billing_date) }}
+              </span>
             </div>
             <div class="invoice-total">
               {{ formatMoney(inv.total, inv.currency) }}
@@ -376,6 +381,22 @@ function goToInvoice(id) {
 
 .due-date {
   color: rgba(251, 191, 36, 0.7);
+}
+
+.cycle-badge {
+  padding: 0.1rem 0.5rem;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: #a78bfa;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.next-billing {
+  color: rgba(74, 222, 128, 0.7);
 }
 
 .invoice-total {

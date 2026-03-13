@@ -11,7 +11,8 @@ import {
   recordPayment,
   voidInvoice,
   formatMoney,
-  formatDate
+  formatDate,
+  billingCycleLabel
 } from '../api/billing.js'
 
 const route = useRoute()
@@ -448,7 +449,35 @@ function closeAllForms() {
                   <dt>Status</dt>
                   <dd><StatusBadge :status="invoice.status" /></dd>
                 </div>
+                <div class="dl-row">
+                  <dt>Billing Cycle</dt>
+                  <dd>
+                    <span class="cycle-badge" :class="'cycle-' + invoice.billing_cycle">
+                      {{ billingCycleLabel(invoice.billing_cycle) }}
+                    </span>
+                  </dd>
+                </div>
+                <div v-if="invoice.period_start" class="dl-row">
+                  <dt>Period Start</dt>
+                  <dd>{{ formatDate(invoice.period_start) }}</dd>
+                </div>
+                <div v-if="invoice.period_end" class="dl-row">
+                  <dt>Period End</dt>
+                  <dd>{{ formatDate(invoice.period_end) }}</dd>
+                </div>
               </dl>
+            </div>
+
+            <!-- Next Billing Card (recurring invoices only) -->
+            <div v-if="invoice.next_billing_date" class="next-billing-card glass-card">
+              <h3>Next Billing</h3>
+              <div class="next-billing-content">
+                <div class="next-billing-icon">⟳</div>
+                <div class="next-billing-info">
+                  <span class="next-billing-date">{{ formatDate(invoice.next_billing_date) }}</span>
+                  <span class="next-billing-cycle">{{ billingCycleLabel(invoice.billing_cycle) }} renewal</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -912,6 +941,82 @@ function closeAllForms() {
 .mono {
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 0.75rem;
+}
+
+/* Billing cycle badge */
+.cycle-badge {
+  padding: 0.15rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.cycle-one_time {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.cycle-monthly {
+  background: rgba(99, 102, 241, 0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.cycle-yearly {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+/* Next Billing Card */
+.next-billing-card {
+  padding: 1.25rem;
+}
+
+.next-billing-card h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.next-billing-content {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.next-billing-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #4ade80;
+  flex-shrink: 0;
+}
+
+.next-billing-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.next-billing-date {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.next-billing-cycle {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* Loading / Error */

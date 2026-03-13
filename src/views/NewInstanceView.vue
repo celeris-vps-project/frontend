@@ -163,6 +163,7 @@ async function handleSubmit() {
 
     const order = await createOrder({
       productID: product.id,
+      billingCycle: product.billing_cycle,
       currency: form.currency,
       priceAmount: product.price_amount,
       hostname: form.hostname,

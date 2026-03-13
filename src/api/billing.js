@@ -1,5 +1,79 @@
 import { request } from './request'
 
+// ---- Invoice API (authenticated, billing module) ----
+
+export async function listInvoices() {
+  const res = await request('GET', '/api/v1/invoices')
+  return res.data || []
+}
+
+export async function getInvoice(id) {
+  const res = await request('GET', `/api/v1/invoices/${id}`)
+  return res.data
+}
+
+export async function createInvoice(customerID, currency, billingCycle, periodStart, periodEnd) {
+  const body = { customer_id: customerID, currency }
+  if (billingCycle) body.billing_cycle = billingCycle
+  if (periodStart) body.period_start = periodStart
+  if (periodEnd) body.period_end = periodEnd
+  const res = await request('POST', '/api/v1/invoices', body)
+  return res.data
+}
+
+export async function addLineItem(invoiceID, item) {
+  const res = await request('POST', `/api/v1/invoices/${invoiceID}/line-items`, item)
+  return res.data
+}
+
+export async function setTax(invoiceID, amount) {
+  const res = await request('PUT', `/api/v1/invoices/${invoiceID}/tax`, { amount })
+  return res.data
+}
+
+export async function issueInvoice(invoiceID, dueAt) {
+  const body = {}
+  if (dueAt) body.due_at = dueAt
+  const res = await request('POST', `/api/v1/invoices/${invoiceID}/issue`, body)
+  return res.data
+}
+
+export async function recordPayment(invoiceID, amount) {
+  const res = await request('POST', `/api/v1/invoices/${invoiceID}/payments`, { amount })
+  return res.data
+}
+
+export async function voidInvoice(invoiceID, reason) {
+  const res = await request('POST', `/api/v1/invoices/${invoiceID}/void`, { reason })
+  return res.data
+}
+
+// ---- Money formatting ----
+
+const CURRENCY_SYMBOLS = {
+  usd: '$', eur: '€', gbp: '£', jpy: '¥', twd: 'NT$', cny: '¥'
+}
+
+export function formatMoney(cents, currency = 'usd') {
+  const cur = (currency || 'usd').toLowerCase()
+  const symbol = CURRENCY_SYMBOLS[cur] || cur.toUpperCase() + ' '
+  // JPY and TWD are zero-decimal currencies
+  if (cur === 'jpy') return `${symbol}${cents}`
+  return `${symbol}${(cents / 100).toFixed(2)}`
+}
+
+// ---- Billing cycle helpers ----
+
+const CYCLE_LABELS = {
+  one_time: 'One-time',
+  monthly: 'Monthly',
+  yearly: 'Yearly'
+}
+
+export function billingCycleLabel(cycle) {
+  return CYCLE_LABELS[cycle] || cycle
+}
+
 // ---- Products API (public, returns enabled/on-sale products) ----
 
 export async function listProducts() {
@@ -41,9 +115,10 @@ export async function getNode(id) {
 
 // ---- Order API (used internally for instance purchase flow) ----
 
-export async function createOrder({ productID, currency, priceAmount, hostname, plan, region, os, cpu, memoryMB, diskGB }) {
+export async function createOrder({ productID, billingCycle, currency, priceAmount, hostname, plan, region, os, cpu, memoryMB, diskGB }) {
   const res = await request('POST', '/api/v1/orders', {
     product_id: productID,
+    billing_cycle: billingCycle,
     currency,
     price_amount: priceAmount,
     hostname, plan, region, os,

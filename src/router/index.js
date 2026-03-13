@@ -6,6 +6,9 @@ import InstancesView from '../views/InstancesView.vue'
 import InstanceDetailView from '../views/InstanceDetailView.vue'
 import NewInstanceView from '../views/NewInstanceView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
+import InvoicesView from '../views/InvoicesView.vue'
+import InvoiceDetailView from '../views/InvoiceDetailView.vue'
+import CreateInvoiceView from '../views/CreateInvoiceView.vue'
 import AdminDashboardView from '../views/admin/AdminDashboardView.vue'
 import AdminNodesView from '../views/admin/AdminNodesView.vue'
 import AdminNodeDetailView from '../views/admin/AdminNodeDetailView.vue'
@@ -28,6 +31,11 @@ const routes = [
   { path: '/instances/new', name: 'new-instance', component: NewInstanceView, meta: { auth: true } },
   { path: '/instances/:id', name: 'instance-detail', component: InstanceDetailView, meta: { auth: true } },
   { path: '/orders/:id/checkout', name: 'checkout', component: CheckoutView, meta: { auth: true } },
+
+  // Invoice routes
+  { path: '/invoices', name: 'invoices', component: InvoicesView, meta: { auth: true } },
+  { path: '/invoices/create', name: 'create-invoice', component: CreateInvoiceView, meta: { auth: true } },
+  { path: '/invoices/:id', name: 'invoice-detail', component: InvoiceDetailView, meta: { auth: true } },
 
   // Admin routes
   { path: '/admin', name: 'admin-dashboard', component: AdminDashboardView, meta: { auth: true, admin: true } },
