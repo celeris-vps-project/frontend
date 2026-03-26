@@ -1,20 +1,23 @@
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   status: { type: String, required: true }
 })
 
 const badgeClass = computed(() => {
-  const map = {
-    online: 'badge-online',
-    offline: 'badge-offline'
-  }
+  const map = { online: 'badge-online', offline: 'badge-offline' }
   return map[props.status] || 'badge-offline'
 })
 
 const displayLabel = computed(() => {
-  return props.status ? props.status.charAt(0).toUpperCase() + props.status.slice(1) : 'Unknown'
+  if (props.status) {
+    return t(`status.${props.status}`)
+  }
+  return t('common.unknown')
 })
 </script>
 
@@ -26,23 +29,23 @@ const displayLabel = computed(() => {
 .node-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.75rem;
+  padding: 0.2rem 0.65rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
 }
 
 .badge-online {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
 }
 
 .badge-offline {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger-border);
 }
 </style>

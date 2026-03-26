@@ -1,11 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/AdminLayout.vue'
 import NodeStatusBadge from '../../components/NodeStatusBadge.vue'
 import { listHostNodes, formatPercent, formatDateTime } from '../../api/admin'
 import { useNodeStatusWS } from '../../api/ws'
 
+const { t } = useI18n()
 const router = useRouter()
 const nodes = ref([])
 const loading = ref(true)
@@ -75,14 +77,22 @@ const statusCounts = computed(() => {
   return counts
 })
 
-const filterTabs = [
-  { key: 'all', label: 'All' },
-  { key: 'online', label: 'Online' },
-  { key: 'offline', label: 'Offline' }
-]
+const filterTabs = computed(() => [
+  { key: 'all', label: t('adminNodes.all') },
+  { key: 'online', label: t('adminNodes.online') },
+  { key: 'offline', label: t('adminNodes.offline') }
+])
 
 function goToNode(id) {
   router.push(`/admin/nodes/${id}`)
+}
+
+// Dynamic color based on usage percentage
+function usageColor(val) {
+  if (val == null) return '#4b5563'
+  if (val < 50) return '#22c55e'
+  if (val < 80) return '#f59e0b'
+  return '#ef4444'
 }
 </script>
 
@@ -91,11 +101,11 @@ function goToNode(id) {
     <div class="nodes-page">
       <header class="page-header">
         <div>
-          <h1 class="page-title">Host Nodes</h1>
-          <p class="page-subtitle">Manage your infrastructure nodes</p>
+          <h1 class="page-title">{{ t('adminNodes.title') }}</h1>
+          <p class="page-subtitle">{{ t('adminNodes.subtitle') }}</p>
         </div>
         <router-link to="/admin/nodes/new" class="action-btn primary-btn small-btn">
-          <span>✦</span> Add Node
+          {{ t('adminNodes.addNode') }}
         </router-link>
       </header>
 
@@ -118,7 +128,7 @@ function goToNode(id) {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search code, name, location, IP..."
+            :placeholder="t('adminNodes.searchPlaceholder')"
             class="search-input"
           />
         </div>
@@ -127,21 +137,21 @@ function goToNode(id) {
       <!-- Loading -->
       <div v-if="loading" class="loading-state glass-card">
         <div class="spinner"></div>
-        <span>Loading nodes...</span>
+        <span>{{ t('adminNodes.loadingNodes') }}</span>
       </div>
 
       <!-- Error -->
       <div v-else-if="error" class="error-state glass-card">
         <p>{{ error }}</p>
-        <button class="action-btn secondary-btn small-btn" @click="fetchNodes">Retry</button>
+        <button class="action-btn secondary-btn small-btn" @click="fetchNodes">{{ t('common.retry') }}</button>
       </div>
 
       <!-- Empty -->
       <div v-else-if="filteredNodes.length === 0" class="empty-state glass-card">
         <div class="empty-icon">⬡</div>
-        <p>No nodes match your filters.</p>
+        <p>{{ t('adminNodes.noMatch') }}</p>
         <router-link v-if="nodes.length === 0" to="/admin/nodes/new" class="action-btn primary-btn small-btn">
-          Register First Node
+          {{ t('adminNodes.registerFirst') }}
         </router-link>
       </div>
 
@@ -169,33 +179,57 @@ function goToNode(id) {
             </div>
 
             <div class="usage-bars">
-              <div class="usage-item">
-                <span class="usage-label">CPU</span>
-                <div class="bar-track">
-                  <div class="bar-fill cpu-fill" :style="{ width: `${node.cpu_usage || 0}%` }"></div>
+              <div class="usage-col">
+                <span class="usage-header">{{ t('adminNodes.cpu') || 'CPU' }}</span>
+                <div class="progress-bar-track">
+                  <div
+                    class="progress-bar-fill"
+                    :style="{
+                      width: `${node.cpu_usage || 0}%`,
+                      background: usageColor(node.cpu_usage)
+                    }"
+                  >
+                    <span class="progress-bar-text">{{ formatPercent(node.cpu_usage) }}</span>
+                  </div>
+                  <span v-if="!node.cpu_usage || node.cpu_usage < 15" class="progress-bar-text-outside">{{ formatPercent(node.cpu_usage) }}</span>
                 </div>
-                <span class="usage-val">{{ formatPercent(node.cpu_usage) }}</span>
               </div>
-              <div class="usage-item">
-                <span class="usage-label">MEM</span>
-                <div class="bar-track">
-                  <div class="bar-fill mem-fill" :style="{ width: `${node.mem_usage || 0}%` }"></div>
+              <div class="usage-col">
+                <span class="usage-header">{{ t('adminNodes.memory') || 'MEM' }}</span>
+                <div class="progress-bar-track">
+                  <div
+                    class="progress-bar-fill"
+                    :style="{
+                      width: `${node.mem_usage || 0}%`,
+                      background: usageColor(node.mem_usage)
+                    }"
+                  >
+                    <span class="progress-bar-text">{{ formatPercent(node.mem_usage) }}</span>
+                  </div>
+                  <span v-if="!node.mem_usage || node.mem_usage < 15" class="progress-bar-text-outside">{{ formatPercent(node.mem_usage) }}</span>
                 </div>
-                <span class="usage-val">{{ formatPercent(node.mem_usage) }}</span>
               </div>
-              <div class="usage-item">
-                <span class="usage-label">DISK</span>
-                <div class="bar-track">
-                  <div class="bar-fill disk-fill" :style="{ width: `${node.disk_usage || 0}%` }"></div>
+              <div class="usage-col">
+                <span class="usage-header">{{ t('adminNodes.disk') || 'DISK' }}</span>
+                <div class="progress-bar-track">
+                  <div
+                    class="progress-bar-fill"
+                    :style="{
+                      width: `${node.disk_usage || 0}%`,
+                      background: usageColor(node.disk_usage)
+                    }"
+                  >
+                    <span class="progress-bar-text">{{ formatPercent(node.disk_usage) }}</span>
+                  </div>
+                  <span v-if="!node.disk_usage || node.disk_usage < 15" class="progress-bar-text-outside">{{ formatPercent(node.disk_usage) }}</span>
                 </div>
-                <span class="usage-val">{{ formatPercent(node.disk_usage) }}</span>
               </div>
             </div>
           </div>
 
           <div class="node-card-bottom">
-            <span class="vm-count">{{ node.vm_count }} VMs</span>
-            <span v-if="node.last_seen_at" class="last-seen">Last seen {{ formatDateTime(node.last_seen_at) }}</span>
+            <span class="vm-count">{{ t('adminNodes.vms', { count: node.vm_count }) }}</span>
+            <span v-if="node.last_seen_at" class="last-seen">{{ t('adminNodes.lastSeen', { time: formatDateTime(node.last_seen_at) }) }}</span>
           </div>
         </div>
       </div>
@@ -222,7 +256,7 @@ function goToNode(id) {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -230,7 +264,7 @@ function goToNode(id) {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -258,7 +292,7 @@ function goToNode(id) {
   border-radius: 8px;
   font-size: 0.825rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   background: none;
   border: 1px solid transparent;
   cursor: pointer;
@@ -266,18 +300,18 @@ function goToNode(id) {
 }
 
 .filter-tab:hover {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  background: var(--bg-card);
 }
 
 .filter-tab.active {
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
 }
 
 .count-badge {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-input);
   padding: 0.1rem 0.45rem;
   border-radius: 6px;
   font-size: 0.7rem;
@@ -287,23 +321,23 @@ function goToNode(id) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 0.4rem 0.75rem;
 }
 
-.search-icon { color: rgba(255, 255, 255, 0.3); font-size: 0.9rem; }
+.search-icon { color: var(--text-muted); font-size: 0.9rem; }
 
 .search-input {
   background: none;
   border: none;
   outline: none;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.85rem;
   width: 200px;
 }
-.search-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+.search-input::placeholder { color: var(--text-muted); }
 
 /* Loading / Error / Empty */
 .loading-state, .error-state, .empty-state {
@@ -312,14 +346,14 @@ function goToNode(id) {
   align-items: center;
   gap: 0.75rem;
   padding: 3rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .empty-icon { font-size: 2.5rem; opacity: 0.3; }
 
 .spinner {
   width: 24px; height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--border-default);
   border-top: 2px solid #f87171;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -338,7 +372,7 @@ function goToNode(id) {
   transition: all 0.2s;
 }
 .node-card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--text-muted);
   transform: translateY(-1px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
@@ -354,12 +388,12 @@ function goToNode(id) {
 .node-code {
   font-family: monospace;
   font-weight: 700;
-  color: #f87171;
+  color: var(--danger);
   font-size: 1rem;
 }
 .node-name {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .node-card-body { margin-bottom: 0.75rem; }
@@ -378,53 +412,74 @@ function goToNode(id) {
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 500;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
 }
 
 .ip-tag { font-family: monospace; }
 
-.usage-bars { display: flex; flex-direction: column; gap: 0.4rem; }
+/* ─── Progress Bar Usage ─── */
+.usage-bars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
 
-.usage-item {
+.usage-col {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-.usage-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
-  width: 35px;
+.usage-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.bar-track {
-  flex: 1;
-  height: 6px;
+.progress-bar-track {
+  position: relative;
+  width: 100%;
+  height: 22px;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
-.bar-fill {
+.progress-bar-fill {
   height: 100%;
-  border-radius: 3px;
-  transition: width 0.3s ease;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  min-width: 0;
+  transition: width 0.5s ease, background 0.5s ease;
+  position: relative;
 }
 
-.cpu-fill { background: linear-gradient(90deg, #6366f1, #818cf8); }
-.mem-fill { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-.disk-fill { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.progress-bar-text {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+}
 
-.usage-val {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-  width: 45px;
-  text-align: right;
-  font-family: monospace;
+.progress-bar-text-outside {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
 }
 
 .node-card-bottom {
@@ -432,8 +487,8 @@ function goToNode(id) {
   justify-content: space-between;
   align-items: center;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
 }
 
-.vm-count { font-weight: 600; color: rgba(255, 255, 255, 0.6); }
+.vm-count { font-weight: 600; color: var(--text-secondary); }
 </style>

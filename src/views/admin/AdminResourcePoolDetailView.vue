@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/AdminLayout.vue'
 import {
   getResourcePool,
@@ -13,6 +14,7 @@ import {
   listAllRegions
 } from '../../api/admin'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const pool = ref(null)
@@ -120,12 +122,12 @@ async function handleRemoveNode(nodeId) {
     <div class="pool-detail-page">
       <div v-if="loading" class="loading-state glass-card">
         <div class="spinner"></div>
-        <span>Loading pool…</span>
+        <span>{{ t('adminResourcePoolDetail.loadingPool') }}</span>
       </div>
 
       <div v-else-if="error && !pool" class="error-state glass-card">
         <p>{{ error }}</p>
-        <button class="action-btn secondary-btn small-btn" @click="fetchPool">Retry</button>
+        <button class="action-btn secondary-btn small-btn" @click="fetchPool">{{ t('common.retry') }}</button>
       </div>
 
       <template v-else-if="pool">
@@ -141,9 +143,9 @@ async function handleRemoveNode(nodeId) {
               :class="pool.status === 'active' ? 'danger-btn' : 'success-btn'"
               @click="toggleStatus"
             >
-              {{ pool.status === 'active' ? '⏸ Deactivate' : '▶ Activate' }}
+              {{ pool.status === 'active' ? t('adminResourcePoolDetail.deactivate') : t('adminResourcePoolDetail.activate') }}
             </button>
-            <router-link to="/admin/resource-pools" class="action-btn secondary-btn small-btn">← Back</router-link>
+            <router-link to="/admin/resource-pools" class="action-btn secondary-btn small-btn">{{ t('adminResourcePoolDetail.back') }}</router-link>
           </div>
         </header>
 
@@ -154,14 +156,14 @@ async function handleRemoveNode(nodeId) {
           <div class="summary-card glass-card">
             <div class="summary-icon status-icon" :class="pool.status">⬢</div>
             <div class="summary-content">
-              <span class="summary-label">Status</span>
+              <span class="summary-label">{{ t('adminResourcePoolDetail.statusLabel') }}</span>
               <span class="summary-value" :class="pool.status">{{ pool.status }}</span>
             </div>
           </div>
           <div class="summary-card glass-card">
             <div class="summary-icon region-icon">🌍</div>
             <div class="summary-content">
-              <span class="summary-label">Region</span>
+              <span class="summary-label">{{ t('adminResourcePoolDetail.regionLabel') }}</span>
               <span class="summary-value" v-if="poolRegion">{{ poolRegion.flag_icon }} {{ poolRegion.name }}</span>
               <span class="summary-value" v-else>—</span>
             </div>
@@ -169,21 +171,21 @@ async function handleRemoveNode(nodeId) {
           <div class="summary-card glass-card">
             <div class="summary-icon nodes-icon">⬡</div>
             <div class="summary-content">
-              <span class="summary-label">Nodes</span>
+              <span class="summary-label">{{ t('adminResourcePoolDetail.nodesLabel') }}</span>
               <span class="summary-value">{{ poolNodes.length }}</span>
             </div>
           </div>
           <div class="summary-card glass-card">
             <div class="summary-icon slots-icon">◈</div>
             <div class="summary-content">
-              <span class="summary-label">Available Slots</span>
+              <span class="summary-label">{{ t('adminResourcePoolDetail.availableSlots') }}</span>
               <span class="summary-value">{{ pool.available_slots }} <small>/ {{ pool.total_slots }}</small></span>
             </div>
           </div>
           <div class="summary-card glass-card">
             <div class="summary-icon usage-icon">⚡</div>
             <div class="summary-content">
-              <span class="summary-label">Usage</span>
+              <span class="summary-label">{{ t('adminResourcePoolDetail.usageLabel') }}</span>
               <span class="summary-value">{{ usagePercent(pool.used_slots, pool.total_slots) }}%</span>
             </div>
           </div>
@@ -196,28 +198,28 @@ async function handleRemoveNode(nodeId) {
             :class="{ active: activeTab === 'nodes' }"
             @click="activeTab = 'nodes'"
           >
-            ⬢ Nodes <span class="tab-count">{{ poolNodes.length }}</span>
+            {{ t('adminResourcePoolDetail.nodesTab') }} <span class="tab-count">{{ poolNodes.length }}</span>
           </button>
           <button
             class="tab-btn"
             :class="{ active: activeTab === 'products' }"
             @click="activeTab = 'products'"
           >
-            ◇ Products <span class="tab-count">{{ linkedProducts.length }}</span>
+            {{ t('adminResourcePoolDetail.productsTab') }} <span class="tab-count">{{ linkedProducts.length }}</span>
           </button>
         </div>
 
         <!-- Nodes Tab -->
         <div v-if="activeTab === 'nodes'" class="tab-content">
           <div class="tab-header">
-            <h3>Assigned Nodes</h3>
+            <h3>{{ t('adminResourcePoolDetail.assignedNodes') }}</h3>
             <button class="action-btn primary-btn small-btn" @click="showAssignDialog = true">
-              ✦ Add Node
+              {{ t('adminResourcePoolDetail.addNode') }}
             </button>
           </div>
 
           <div v-if="poolNodes.length === 0" class="empty-tab glass-card">
-            <p>No nodes assigned to this pool yet.</p>
+            <p>{{ t('adminResourcePoolDetail.noNodesAssigned') }}</p>
           </div>
 
           <div v-else class="node-grid">
@@ -232,7 +234,7 @@ async function handleRemoveNode(nodeId) {
               <div class="node-item-stats">
                 <span>{{ node.available_slots }} / {{ node.total_slots }} slots</span>
                 <span class="node-enabled" :class="{ on: node.enabled }">
-                  {{ node.enabled ? 'Enabled' : 'Disabled' }}
+                  {{ node.enabled ? t('adminResourcePoolDetail.enabledLabel') : t('adminResourcePoolDetail.disabledLabel') }}
                 </span>
               </div>
               <button class="remove-btn" @click.stop="handleRemoveNode(node.id)" title="Remove from pool">✕</button>
@@ -243,11 +245,11 @@ async function handleRemoveNode(nodeId) {
         <!-- Products Tab -->
         <div v-if="activeTab === 'products'" class="tab-content">
           <div class="tab-header">
-            <h3>Linked Products</h3>
+            <h3>{{ t('adminResourcePoolDetail.linkedProducts') }}</h3>
           </div>
 
           <div v-if="linkedProducts.length === 0" class="empty-tab glass-card">
-            <p>No products are using this resource pool.</p>
+            <p>{{ t('adminResourcePoolDetail.noProductsLinked') }}</p>
           </div>
 
           <div v-else class="product-grid">
@@ -266,20 +268,20 @@ async function handleRemoveNode(nodeId) {
         <!-- Assign Node Dialog -->
         <div v-if="showAssignDialog" class="dialog-overlay" @click.self="showAssignDialog = false">
           <div class="dialog glass-card">
-            <h3 class="dialog-title">Add Node to Pool</h3>
+            <h3 class="dialog-title">{{ t('adminResourcePoolDetail.addNodeToPool') }}</h3>
             <div class="form-group">
-              <label class="form-label">Select Node</label>
+              <label class="form-label">{{ t('adminResourcePoolDetail.selectNode') }}</label>
               <select v-model="selectedNodeId" class="form-input">
-                <option value="" disabled>Choose a node…</option>
+                <option value="" disabled>{{ t('adminResourcePoolDetail.chooseNode') }}</option>
                 <option v-for="n in unassignedNodes" :key="n.id" :value="n.id">
                   {{ n.code }} — {{ n.name }} ({{ n.location }})
                 </option>
               </select>
             </div>
             <div class="dialog-actions">
-              <button class="action-btn secondary-btn small-btn" @click="showAssignDialog = false">Cancel</button>
+              <button class="action-btn secondary-btn small-btn" @click="showAssignDialog = false">{{ t('common.cancel') }}</button>
               <button class="action-btn primary-btn small-btn" :disabled="!selectedNodeId || assignLoading" @click="handleAssignNode">
-                {{ assignLoading ? 'Adding…' : 'Add Node' }}
+                {{ assignLoading ? t('adminResourcePoolDetail.addingNode') : t('adminResourcePoolDetail.addNodeBtn') }}
               </button>
             </div>
           </div>
@@ -308,7 +310,7 @@ async function handleRemoveNode(nodeId) {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -316,16 +318,16 @@ async function handleRemoveNode(nodeId) {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   font-size: 0.8rem;
 }
 
 .header-actions { display: flex; gap: 0.5rem; }
 
 .inline-error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger);
   padding: 0.6rem 1rem;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -348,19 +350,19 @@ async function handleRemoveNode(nodeId) {
   width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
   border-radius: 10px; font-size: 1.2rem;
 }
-.status-icon.active { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
-.status-icon.inactive { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.status-icon.active { background: var(--success-bg); color: var(--success); }
+.status-icon.inactive { background: var(--danger-bg); color: var(--danger); }
 .region-icon { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
-.nodes-icon { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
-.slots-icon { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
-.usage-icon { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.nodes-icon { background: var(--accent-bg); color: var(--accent); }
+.slots-icon { background: var(--warning-bg); color: var(--warning); }
+.usage-icon { background: rgba(139, 92, 246, 0.15); color: var(--accent); }
 
 .summary-content { display: flex; flex-direction: column; }
-.summary-label { font-size: 0.75rem; color: rgba(255, 255, 255, 0.5); font-weight: 500; }
-.summary-value { font-size: 1.25rem; font-weight: 700; color: #fff; text-transform: capitalize; }
-.summary-value.active { color: #4ade80; }
-.summary-value.inactive { color: #f87171; }
-.summary-value small { font-size: 0.75rem; font-weight: 400; color: rgba(255, 255, 255, 0.4); }
+.summary-label { font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; }
+.summary-value { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); text-transform: capitalize; }
+.summary-value.active { color: var(--success); }
+.summary-value.inactive { color: var(--danger); }
+.summary-value small { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); }
 
 /* Tabs */
 .tabs {
@@ -371,15 +373,15 @@ async function handleRemoveNode(nodeId) {
   display: flex; align-items: center; gap: 0.4rem;
   padding: 0.55rem 1rem; border-radius: 8px;
   font-size: 0.85rem; font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   background: none; border: 1px solid transparent;
   cursor: pointer; transition: all 0.2s;
 }
-.tab-btn:hover { color: rgba(255, 255, 255, 0.8); background: rgba(255, 255, 255, 0.04); }
-.tab-btn.active { color: #f87171; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); }
+.tab-btn:hover { color: var(--text-primary); background: var(--bg-card); }
+.tab-btn.active { color: var(--danger); background: var(--danger-bg); border-color: var(--danger-border); }
 
 .tab-count {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-input);
   padding: 0.1rem 0.4rem; border-radius: 5px; font-size: 0.7rem;
 }
 
@@ -388,9 +390,9 @@ async function handleRemoveNode(nodeId) {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 1rem;
 }
-.tab-header h3 { margin: 0; font-size: 1rem; color: rgba(255, 255, 255, 0.8); }
+.tab-header h3 { margin: 0; font-size: 1rem; color: var(--text-primary); }
 
-.empty-tab { padding: 2rem; text-align: center; color: rgba(255, 255, 255, 0.4); }
+.empty-tab { padding: 2rem; text-align: center; color: var(--text-muted); }
 
 /* Node Items */
 .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
@@ -400,8 +402,8 @@ async function handleRemoveNode(nodeId) {
 }
 
 .node-item-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-.node-code { font-family: monospace; font-weight: 700; color: #a78bfa; font-size: 0.95rem; }
-.node-name-label { display: block; font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); }
+.node-code { font-family: monospace; font-weight: 700; color: var(--accent); font-size: 0.95rem; }
+.node-name-label { display: block; font-size: 0.75rem; color: var(--text-muted); }
 
 .node-status-dot {
   width: 10px; height: 10px; border-radius: 50%;
@@ -411,15 +413,15 @@ async function handleRemoveNode(nodeId) {
 
 .node-item-stats {
   display: flex; justify-content: space-between;
-  font-size: 0.78rem; color: rgba(255, 255, 255, 0.5);
+  font-size: 0.78rem; color: var(--text-secondary);
 }
 .node-enabled { font-weight: 600; }
-.node-enabled.on { color: #4ade80; }
+.node-enabled.on { color: var(--success); }
 
 .remove-btn {
   position: absolute; top: 0.6rem; right: 0.6rem;
-  background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #f87171; width: 24px; height: 24px;
+  background: var(--danger-bg); border: 1px solid var(--danger-border);
+  color: var(--danger); width: 24px; height: 24px;
   border-radius: 6px; font-size: 0.7rem;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: opacity 0.2s;
@@ -431,40 +433,40 @@ async function handleRemoveNode(nodeId) {
 .product-item {
   padding: 1rem; cursor: pointer; transition: all 0.2s;
 }
-.product-item:hover { border-color: rgba(255, 255, 255, 0.12); }
-.product-item-name { display: block; font-weight: 600; color: #fff; font-size: 0.9rem; }
-.product-item-slug { font-size: 0.75rem; color: rgba(255, 255, 255, 0.35); }
+.product-item:hover { border-color: var(--text-muted); }
+.product-item-name { display: block; font-weight: 600; color: var(--text-primary); font-size: 0.9rem; }
+.product-item-slug { font-size: 0.75rem; color: var(--text-muted); }
 
 /* Dialog */
 .dialog-overlay {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+  position: fixed; inset: 0; background: var(--bg-code);
   display: flex; align-items: center; justify-content: center;
   z-index: 100;
 }
 .dialog { padding: 2rem; width: 400px; max-width: 90vw; }
-.dialog-title { margin: 0 0 1.5rem; font-size: 1.1rem; color: #fff; }
+.dialog-title { margin: 0 0 1.5rem; font-size: 1.1rem; color: var(--text-primary); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
 
 .form-group { margin-bottom: 1rem; }
-.form-label { display: block; font-size: 0.8rem; font-weight: 600; color: rgba(255, 255, 255, 0.6); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+.form-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
 .form-input {
   width: 100%; padding: 0.7rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px; color: #fff; font-size: 0.9rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 10px; color: var(--text-primary); font-size: 0.9rem;
   outline: none; box-sizing: border-box;
 }
-.form-input option { background: #1a1a2e; color: #fff; }
+.form-input option { background: var(--bg-base); color: var(--text-primary); }
 
 /* States */
 .loading-state, .error-state {
   display: flex; flex-direction: column; align-items: center;
-  gap: 0.75rem; padding: 3rem; color: rgba(255, 255, 255, 0.5);
+  gap: 0.75rem; padding: 3rem; color: var(--text-secondary);
 }
 
 .spinner {
   width: 24px; height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--border-default);
   border-top: 2px solid #f87171;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

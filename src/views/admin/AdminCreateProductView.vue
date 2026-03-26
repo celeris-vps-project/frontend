@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/AdminLayout.vue'
 import { createProduct, listResourcePools, listAllRegions } from '../../api/admin'
 
+const { t } = useI18n()
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
@@ -132,76 +134,76 @@ async function handleSubmit() {
 <template>
   <AdminLayout>
     <div class="create-product-page">
-      <button class="back-btn" @click="router.push('/admin/products')">← Back to Products</button>
+      <button class="back-btn" @click="router.push('/admin/products')">{{ t('adminCreateProduct.backToProducts') }}</button>
 
       <header class="page-header">
-        <h1 class="page-title">New Product</h1>
-        <p class="page-subtitle">Configure instance specs and pricing for a new VPS plan</p>
+        <h1 class="page-title">{{ t('adminCreateProduct.title') }}</h1>
+        <p class="page-subtitle">{{ t('adminCreateProduct.subtitle') }}</p>
       </header>
 
       <form @submit.prevent="handleSubmit">
         <!-- Product Identity -->
         <section class="form-section glass-card">
-          <h2 class="section-title">Product Info</h2>
+          <h2 class="section-title">{{ t('adminCreateProduct.productInfo') }}</h2>
           <div class="form-grid">
             <div class="form-group">
-              <label>Product Name</label>
-              <input v-model="form.name" type="text" placeholder="e.g. VPS Starter" required class="form-input" />
-              <span class="form-hint">Displayed name visible to customers</span>
+              <label>{{ t('adminCreateProduct.productName') }}</label>
+              <input v-model="form.name" type="text" :placeholder="t('adminCreateProduct.productNamePlaceholder')" required class="form-input" />
+              <span class="form-hint">{{ t('adminCreateProduct.productNameHint') }}</span>
             </div>
             <div class="form-group">
-              <label>Slug</label>
-              <input v-model="form.slug" type="text" placeholder="e.g. vps-starter" required class="form-input mono" />
-              <span class="form-hint">URL-friendly identifier (auto-generated)</span>
+              <label>{{ t('adminCreateProduct.slug') }}</label>
+              <input v-model="form.slug" type="text" :placeholder="t('adminCreateProduct.slugPlaceholder')" required class="form-input mono" />
+              <span class="form-hint">{{ t('adminCreateProduct.slugHint') }}</span>
             </div>
             <div class="form-group full-width">
-              <label>Resource Pool</label>
+              <label>{{ t('adminCreateProduct.resourcePool') }}</label>
               <select v-model="form.resource_pool_id" required class="form-select" :disabled="poolsLoading">
-                <option value="" disabled>{{ poolsLoading ? 'Loading resource pools...' : 'Select a resource pool' }}</option>
+                <option value="" disabled>{{ poolsLoading ? t('adminCreateProduct.loadingResourcePools') : t('adminCreateProduct.selectResourcePool') }}</option>
                 <option v-for="pool in pools" :key="pool.pool_id" :value="pool.pool_id">
                   {{ pool.pool_name }}
                 </option>
               </select>
-              <span v-if="selectedRegion" class="form-hint">Region: {{ selectedRegion.flag_icon }} {{ selectedRegion.name }}</span>
-              <span v-else class="form-hint">Select a resource pool to assign this product</span>
+              <span v-if="selectedRegion" class="form-hint">{{ t('adminCreateProduct.regionHint', { region: selectedRegion.name }) }}</span>
+              <span v-else class="form-hint">{{ t('adminCreateProduct.selectPoolHint') }}</span>
             </div>
           </div>
         </section>
 
         <!-- Instance Specs -->
         <section class="form-section glass-card">
-          <h2 class="section-title">Instance Specs</h2>
-          <p class="section-desc">Define the hardware configuration customers will get with this plan</p>
+          <h2 class="section-title">{{ t('adminCreateProduct.instanceSpecs') }}</h2>
+          <p class="section-desc">{{ t('adminCreateProduct.instanceSpecsDesc') }}</p>
 
           <div class="form-grid four-col">
             <div class="form-group">
-              <label>CPU Cores</label>
+              <label>{{ t('adminCreateProduct.cpuCores') }}</label>
               <div class="stepper">
                 <button type="button" class="stepper-btn" @click="form.cpu = Math.max(1, form.cpu - 1)">−</button>
                 <input v-model.number="form.cpu" type="number" min="1" max="128" class="form-input stepper-input" />
                 <button type="button" class="stepper-btn" @click="form.cpu++">+</button>
               </div>
-              <span class="form-hint">vCPU count</span>
+              <span class="form-hint">{{ t('adminCreateProduct.cpuCoresHint') }}</span>
             </div>
 
             <div class="form-group">
-              <label>Memory</label>
+              <label>{{ t('adminCreateProduct.memoryLabel') }}</label>
               <select v-model.number="form.memory_mb" class="form-select">
                 <option v-for="opt in memoryOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
-              <span class="form-hint">RAM allocation</span>
+              <span class="form-hint">{{ t('adminCreateProduct.memoryHint') }}</span>
             </div>
 
             <div class="form-group">
-              <label>Disk (GB)</label>
+              <label>{{ t('adminCreateProduct.diskLabel') }}</label>
               <input v-model.number="form.disk_gb" type="number" min="5" step="5" class="form-input" />
-              <span class="form-hint">NVMe storage</span>
+              <span class="form-hint">{{ t('adminCreateProduct.diskHint') }}</span>
             </div>
 
             <div class="form-group">
-              <label>Bandwidth (GB)</label>
+              <label>{{ t('adminCreateProduct.bandwidthLabel') }}</label>
               <input v-model.number="form.bandwidth_gb" type="number" min="0" step="100" class="form-input" />
-              <span class="form-hint">0 = unlimited</span>
+              <span class="form-hint">{{ t('adminCreateProduct.bandwidthHint') }}</span>
             </div>
           </div>
 
@@ -216,42 +218,42 @@ async function handleSubmit() {
 
         <!-- Inventory / Stock -->
         <section class="form-section glass-card">
-          <h2 class="section-title">Inventory</h2>
-          <p class="section-desc">Set how many instances of this plan can be sold</p>
+          <h2 class="section-title">{{ t('adminCreateProduct.inventory') }}</h2>
+          <p class="section-desc">{{ t('adminCreateProduct.inventoryDesc') }}</p>
 
           <div class="form-grid">
             <div class="form-group">
-              <label>Total Slots</label>
+              <label>{{ t('adminNodeDetail.totalSlots') }}</label>
               <label class="unlimited-toggle">
                 <input type="checkbox" v-model="unlimitedStock" />
-                <span>Unlimited</span>
+                <span>{{ t('adminCreateProduct.unlimitedToggle') }}</span>
               </label>
               <div v-if="!unlimitedStock" class="stepper">
                 <button type="button" class="stepper-btn" @click="form.total_slots = Math.max(0, form.total_slots - 1)">−</button>
                 <input v-model.number="form.total_slots" type="number" min="0" class="form-input stepper-input" />
                 <button type="button" class="stepper-btn" @click="form.total_slots++">+</button>
               </div>
-              <div v-else class="unlimited-badge">∞ No cap on instances</div>
-              <span class="form-hint">{{ unlimitedStock ? 'Unlimited inventory — no slot limit' : 'Maximum instances available for purchase' }}</span>
+              <div v-else class="unlimited-badge">{{ t('adminCreateProduct.noCapOnInstances') }}</div>
+              <span class="form-hint">{{ unlimitedStock ? t('adminCreateProduct.unlimitedHint') : t('adminCreateProduct.limitedHint') }}</span>
             </div>
           </div>
         </section>
 
         <!-- Pricing -->
         <section class="form-section glass-card">
-          <h2 class="section-title">Pricing</h2>
-          <p class="section-desc">Set the billing cycle and price for this product</p>
+          <h2 class="section-title">{{ t('adminCreateProduct.pricing') }}</h2>
+          <p class="section-desc">{{ t('adminCreateProduct.pricingDesc') }}</p>
 
           <div class="form-grid three-col">
             <div class="form-group">
-              <label>Billing Cycle</label>
+              <label>{{ t('adminCreateProduct.billingCycle') }}</label>
               <select v-model="form.billing_cycle" class="form-select">
                 <option v-for="c in billingCycles" :key="c.value" :value="c.value">{{ c.label }}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label>Price</label>
+              <label>{{ t('adminCreateProduct.price') }}</label>
               <div class="price-input-row">
                 <select v-model="form.currency" class="form-select currency-select">
                   <option value="USD">USD</option>
@@ -267,17 +269,17 @@ async function handleSubmit() {
                   class="form-input price-input"
                 />
               </div>
-              <span class="form-hint">Amount per billing cycle</span>
+              <span class="form-hint">{{ t('adminCreateProduct.amountPerCycle') }}</span>
             </div>
 
             <div class="form-group">
-              <label>Preview</label>
+              <label>{{ t('adminCreateProduct.preview') }}</label>
               <div class="price-preview">
                 <span v-if="priceInCents > 0" class="preview-amount">
                   {{ form.currency }} {{ parseFloat(form.price_amount).toFixed(2) }}
                   <small>{{ billingCycles.find(c => c.value === form.billing_cycle)?.label }}</small>
                 </span>
-                <span v-else class="preview-placeholder">Set a price</span>
+                <span v-else class="preview-placeholder">{{ t('adminCreateProduct.setAPrice') }}</span>
               </div>
             </div>
           </div>
@@ -286,13 +288,13 @@ async function handleSubmit() {
         <div v-if="error" class="form-error">{{ error }}</div>
 
         <div class="form-actions">
-          <button type="button" class="action-btn secondary-btn" @click="router.push('/admin/products')">Cancel</button>
+          <button type="button" class="action-btn secondary-btn" @click="router.push('/admin/products')">{{ t('common.cancel') }}</button>
           <button
             type="submit"
             class="action-btn primary-btn"
             :disabled="loading || !formValid"
           >
-            {{ loading ? 'Creating...' : 'Create Product' }}
+            {{ loading ? t('adminCreateProduct.creatingProduct') : t('adminCreateProduct.createProduct') }}
           </button>
         </div>
       </form>
@@ -312,14 +314,14 @@ async function handleSubmit() {
   gap: 0.3rem;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 0;
   margin-bottom: 1rem;
   transition: color 0.2s;
 }
-.back-btn:hover { color: #fff; }
+.back-btn:hover { color: var(--text-primary); }
 
 .page-header { margin-bottom: 1.5rem; }
 
@@ -327,7 +329,7 @@ async function handleSubmit() {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -335,7 +337,7 @@ async function handleSubmit() {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -353,7 +355,7 @@ async function handleSubmit() {
 }
 
 .section-desc {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   font-size: 0.85rem;
   margin: 0 0 1.25rem;
 }
@@ -388,7 +390,7 @@ async function handleSubmit() {
 
 .form-group label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -397,19 +399,19 @@ async function handleSubmit() {
 }
 
 .form-input, .form-select {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   padding: 0.7rem 0.85rem;
   font-size: 0.9rem;
-  color: #fff;
+  color: var(--text-primary);
   transition: border-color 0.2s, box-shadow 0.2s;
   width: 100%;
 }
-.form-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+.form-input::placeholder { color: var(--text-muted); }
 .form-input:focus, .form-select:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-border);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
@@ -422,13 +424,13 @@ async function handleSubmit() {
 }
 
 .form-select option {
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--bg-base);
+  color: var(--text-primary);
 }
 
 .form-hint {
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
 }
 
 .mono { font-family: monospace; }
@@ -440,7 +442,7 @@ async function handleSubmit() {
   gap: 0.45rem;
   cursor: pointer;
   font-size: 0.82rem !important;
-  color: rgba(255, 255, 255, 0.65) !important;
+  color: var(--text-secondary) !important;
   user-select: none;
 }
 
@@ -457,9 +459,9 @@ async function handleSubmit() {
   height: 44px;
   padding: 0 0.85rem;
   background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--accent-border);
   border-radius: 10px;
-  color: #818cf8;
+  color: var(--accent);
   font-size: 0.9rem;
   font-weight: 600;
   font-style: italic;
@@ -473,9 +475,9 @@ async function handleSubmit() {
 
 .stepper-btn {
   width: 38px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -485,7 +487,7 @@ async function handleSubmit() {
 }
 .stepper-btn:first-child { border-radius: 10px 0 0 10px; border-right: none; }
 .stepper-btn:last-child { border-radius: 0 10px 10px 0; border-left: none; }
-.stepper-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.stepper-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
 .stepper-input {
   border-radius: 0;
@@ -503,7 +505,7 @@ async function handleSubmit() {
   flex-wrap: wrap;
   margin-top: 1.25rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--divider);
 }
 
 .spec-pill {
@@ -511,14 +513,14 @@ async function handleSubmit() {
   align-items: center;
   gap: 0.3rem;
   padding: 0.4rem 0.85rem;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
   border-radius: 20px;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
 }
 .spec-pill strong {
-  color: #818cf8;
+  color: var(--accent);
 }
 
 /* Price input */
@@ -544,15 +546,15 @@ async function handleSubmit() {
   align-items: center;
   height: 44px;
   padding: 0 0.85rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
 }
 
 .preview-amount {
   font-size: 1.1rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #f87171, #fb923c);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -560,12 +562,12 @@ async function handleSubmit() {
 .preview-amount small {
   font-size: 0.75rem;
   font-weight: 400;
-  -webkit-text-fill-color: rgba(255, 255, 255, 0.4);
+  -webkit-text-fill-color: var(--text-muted);
   margin-left: 0.35rem;
 }
 
 .preview-placeholder {
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
   font-size: 0.85rem;
 }
 
@@ -573,10 +575,10 @@ async function handleSubmit() {
 .form-error {
   margin: 1rem 0;
   padding: 0.75rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   border-radius: 8px;
-  color: #f87171;
+  color: var(--danger);
   font-size: 0.85rem;
 }
 

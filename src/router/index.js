@@ -6,6 +6,7 @@ import InstancesView from '../views/InstancesView.vue'
 import InstanceDetailView from '../views/InstanceDetailView.vue'
 import NewInstanceView from '../views/NewInstanceView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
+import CryptoPaymentView from '../views/CryptoPaymentView.vue'
 import InvoicesView from '../views/InvoicesView.vue'
 import InvoiceDetailView from '../views/InvoiceDetailView.vue'
 import CreateInvoiceView from '../views/CreateInvoiceView.vue'
@@ -20,6 +21,8 @@ import AdminResourcePoolsView from '../views/admin/AdminResourcePoolsView.vue'
 import AdminCreateResourcePoolView from '../views/admin/AdminCreateResourcePoolView.vue'
 import AdminResourcePoolDetailView from '../views/admin/AdminResourcePoolDetailView.vue'
 import AdminPerformanceView from '../views/admin/AdminPerformanceView.vue'
+import AdminPaymentProvidersView from '../views/admin/AdminPaymentProvidersView.vue'
+import AdminCreatePaymentProviderView from '../views/admin/AdminCreatePaymentProviderView.vue'
 import { getToken, getRole } from '../api/auth'
 
 const routes = [
@@ -31,10 +34,11 @@ const routes = [
   { path: '/instances/new', name: 'new-instance', component: NewInstanceView, meta: { auth: true } },
   { path: '/instances/:id', name: 'instance-detail', component: InstanceDetailView, meta: { auth: true } },
   { path: '/orders/:id/checkout', name: 'checkout', component: CheckoutView, meta: { auth: true } },
+  { path: '/orders/:id/pay', name: 'crypto-payment', component: CryptoPaymentView, meta: { auth: true } },
 
   // Invoice routes
   { path: '/invoices', name: 'invoices', component: InvoicesView, meta: { auth: true } },
-  { path: '/invoices/create', name: 'create-invoice', component: CreateInvoiceView, meta: { auth: true } },
+  { path: '/invoices/create', name: 'create-invoice', component: CreateInvoiceView, meta: { auth: true, admin: true } },
   { path: '/invoices/:id', name: 'invoice-detail', component: InvoiceDetailView, meta: { auth: true } },
 
   // Admin routes
@@ -52,6 +56,10 @@ const routes = [
   { path: '/admin/resource-pools', name: 'admin-resource-pools', component: AdminResourcePoolsView, meta: { auth: true, admin: true } },
   { path: '/admin/resource-pools/new', name: 'admin-create-resource-pool', component: AdminCreateResourcePoolView, meta: { auth: true, admin: true } },
   { path: '/admin/resource-pools/:id', name: 'admin-resource-pool-detail', component: AdminResourcePoolDetailView, meta: { auth: true, admin: true } },
+
+  // Admin payment provider routes
+  { path: '/admin/payment-providers', name: 'admin-payment-providers', component: AdminPaymentProvidersView, meta: { auth: true, admin: true } },
+  { path: '/admin/payment-providers/new', name: 'admin-create-payment-provider', component: AdminCreatePaymentProviderView, meta: { auth: true, admin: true } },
 
   // Admin Performance monitor
   { path: '/admin/performance', name: 'admin-performance', component: AdminPerformanceView, meta: { auth: true, admin: true } }

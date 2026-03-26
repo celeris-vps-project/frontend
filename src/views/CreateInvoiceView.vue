@@ -1,9 +1,11 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
 import { createInvoice, addLineItem, formatMoney } from '../api/billing.js'
 
+const { t } = useI18n()
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
@@ -90,20 +92,20 @@ function goToInvoice() {
   <AppLayout>
     <div class="create-page">
       <header class="page-header">
-        <h1 class="page-title">Create Invoice</h1>
-        <p class="page-subtitle">Set up a new VPS billing invoice</p>
+        <h1 class="page-title">{{ t('createInvoice.title') }}</h1>
+        <p class="page-subtitle">{{ t('createInvoice.subtitle') }}</p>
       </header>
 
       <!-- Step indicators -->
       <div class="steps glass-card">
         <div class="step" :class="{ active: step >= 1, done: step > 1 }">
           <div class="step-circle">{{ step > 1 ? '✓' : '1' }}</div>
-          <span class="step-label">Invoice Details</span>
+          <span class="step-label">{{ t('createInvoice.invoiceDetails') }}</span>
         </div>
         <div class="step-line" :class="{ filled: step > 1 }"></div>
         <div class="step" :class="{ active: step >= 2 }">
           <div class="step-circle">2</div>
-          <span class="step-label">Line Items</span>
+          <span class="step-label">{{ t('createInvoice.lineItemsStep') }}</span>
         </div>
       </div>
 
@@ -114,21 +116,21 @@ function goToInvoice() {
 
       <!-- Step 1: Basic Info -->
       <div v-if="step === 1" class="step-content glass-card">
-        <h2>Invoice Details</h2>
+        <h2>{{ t('createInvoice.invoiceDetails') }}</h2>
         <form @submit.prevent="handleCreateDraft" class="create-form">
           <div class="form-group">
-            <label for="customerId">Customer ID</label>
+            <label for="customerId">{{ t('createInvoice.customerId') }}</label>
             <input
               id="customerId"
               v-model="form.customerID"
               type="text"
-              placeholder="Enter customer identifier"
+              :placeholder="t('createInvoice.customerIdPlaceholder')"
               required
             />
           </div>
 
           <div class="form-group">
-            <label for="currency">Currency</label>
+            <label for="currency">{{ t('createInvoice.currency') }}</label>
             <select id="currency" v-model="form.currency" class="glass-select">
               <option v-for="c in currencies" :key="c.value" :value="c.value">
                 {{ c.label }}
@@ -137,7 +139,7 @@ function goToInvoice() {
           </div>
 
           <button class="action-btn primary-btn" type="submit" :disabled="loading">
-            {{ loading ? 'Creating...' : 'Create Draft Invoice' }}
+            {{ loading ? t('createInvoice.creating') : t('createInvoice.createDraft') }}
           </button>
         </form>
       </div>
@@ -146,8 +148,8 @@ function goToInvoice() {
       <div v-if="step === 2" class="step-content">
         <!-- VPS Presets -->
         <div class="presets-section glass-card">
-          <h2>VPS Plans</h2>
-          <p class="presets-desc">Quick add a VPS plan or create a custom line item below.</p>
+          <h2>{{ t('createInvoice.vpsPlans') }}</h2>
+          <p class="presets-desc">{{ t('createInvoice.vpsPlansDesc') }}</p>
           <div class="presets-grid">
             <button
               v-for="preset in presets"
@@ -165,43 +167,43 @@ function goToInvoice() {
 
         <!-- Custom item form -->
         <div class="item-form-section glass-card">
-          <h2>Add Line Item</h2>
+          <h2>{{ t('createInvoice.addLineItem') }}</h2>
           <form @submit.prevent="handleAddItem" class="create-form">
             <div class="form-row">
               <div class="form-group flex-2">
-                <label>Description</label>
+                <label>{{ t('createInvoice.description') }}</label>
                 <input
                   v-model="newItem.description"
                   type="text"
-                  placeholder="e.g., VPS 4GB RAM — Monthly"
+                  :placeholder="t('createInvoice.descriptionPlaceholder')"
                   required
                 />
               </div>
               <div class="form-group">
-                <label>Quantity</label>
+                <label>{{ t('createInvoice.quantity') }}</label>
                 <input v-model.number="newItem.quantity" type="number" min="1" required />
               </div>
               <div class="form-group">
-                <label>Unit Price ($)</label>
+                <label>{{ t('createInvoice.unitPrice') }}</label>
                 <input v-model.number="newItem.unitPrice" type="number" min="0" step="0.01" required />
               </div>
             </div>
             <button class="action-btn accent-btn" type="submit" :disabled="loading">
-              {{ loading ? 'Adding...' : 'Add to Invoice' }}
+            {{ loading ? t('createInvoice.addingItem') : t('createInvoice.addToInvoice') }}
             </button>
           </form>
         </div>
 
         <!-- Added items preview -->
         <div v-if="lineItems.length > 0" class="added-items glass-card">
-          <h2>Added Items</h2>
+          <h2>{{ t('createInvoice.addedItems') }}</h2>
           <table class="items-table">
             <thead>
               <tr>
-                <th>Description</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Unit Price</th>
-                <th class="text-right">Total</th>
+                <th>{{ t('createInvoice.description') }}</th>
+                <th class="text-right">{{ t('createInvoice.quantity') }}</th>
+                <th class="text-right">{{ t('createInvoice.unitPrice') }}</th>
+                <th class="text-right">{{ t('invoiceDetail.total') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -214,7 +216,7 @@ function goToInvoice() {
             </tbody>
             <tfoot>
               <tr class="total-row">
-                <td colspan="3" class="text-right">Subtotal</td>
+                <td colspan="3" class="text-right">{{ t('invoiceDetail.subtotal') }}</td>
                 <td class="text-right fw-700">{{ formatMoney(lineItemsTotal, form.currency) }}</td>
               </tr>
             </tfoot>
@@ -222,7 +224,7 @@ function goToInvoice() {
 
           <div class="finish-actions">
             <button class="action-btn primary-btn" @click="goToInvoice">
-              Continue to Invoice →
+              {{ t('createInvoice.continueToInvoice') }}
             </button>
           </div>
         </div>
@@ -245,7 +247,7 @@ function goToInvoice() {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -253,7 +255,7 @@ function goToInvoice() {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -283,45 +285,45 @@ function goToInvoice() {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-input);
   border: 2px solid rgba(255, 255, 255, 0.15);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.8rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
   transition: all 0.3s;
 }
 
 .step.active .step-circle {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--accent-bg-hover);
   border-color: #6366f1;
-  color: #a78bfa;
+  color: var(--accent);
 }
 
 .step.done .step-circle {
-  background: rgba(34, 197, 94, 0.2);
+  background: var(--success-bg);
   border-color: #22c55e;
-  color: #4ade80;
+  color: var(--success);
 }
 
 .step-label {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .step-line {
   width: 80px;
   height: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-input);
   margin: 0 1rem;
   transition: background 0.3s;
 }
 
 .step-line.filled {
-  background: linear-gradient(90deg, #22c55e, #6366f1);
+  background: var(--accent-gradient);
 }
 
 /* Notification */
@@ -334,8 +336,8 @@ function goToInvoice() {
 }
 
 .notification-error {
-  border-left: 3px solid #f87171;
-  color: #fca5a5;
+  border-left: 3px solid var(--danger);
+  color: var(--danger);
 }
 
 /* Step content */
@@ -343,7 +345,7 @@ function goToInvoice() {
   margin: 0 0 1rem;
   font-size: 1.15rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .step-content.glass-card {
@@ -378,18 +380,18 @@ function goToInvoice() {
 
 .form-group label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .form-group input,
 .glass-select {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   padding: 0.65rem 0.85rem;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.9rem;
   transition: border-color 0.2s;
 }
@@ -397,12 +399,12 @@ function goToInvoice() {
 .form-group input:focus,
 .glass-select:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-border);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 .form-group input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
 }
 
 .glass-select {
@@ -411,8 +413,8 @@ function goToInvoice() {
 }
 
 .glass-select option {
-  background: #1e1b3a;
-  color: #fff;
+  background: var(--bg-base);
+  color: var(--text-primary);
 }
 
 /* Presets */
@@ -422,7 +424,7 @@ function goToInvoice() {
 }
 
 .presets-desc {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   font-size: 0.85rem;
   margin: 0 0 1rem;
 }
@@ -438,43 +440,43 @@ function goToInvoice() {
   flex-direction: column;
   gap: 0.3rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
   cursor: pointer;
   text-align: left;
   transition: all 0.25s;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .preset-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: var(--bg-input);
+  border-color: var(--accent-border);
   transform: translateY(-1px);
 }
 
 .preset-card.selected {
-  background: rgba(99, 102, 241, 0.12);
-  border-color: rgba(99, 102, 241, 0.4);
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  box-shadow: var(--card-shadow);
 }
 
 .preset-name {
   font-weight: 600;
   font-size: 0.9rem;
-  color: #a78bfa;
+  color: var(--accent);
 }
 
 .preset-spec {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
 .preset-price {
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin-top: 0.25rem;
 }
 
@@ -500,24 +502,24 @@ function goToInvoice() {
   padding: 0.6rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--divider);
 }
 
 .items-table td {
   padding: 0.75rem;
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--divider);
 }
 
 .items-table tfoot .total-row td {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--divider);
   border-bottom: none;
 }
 

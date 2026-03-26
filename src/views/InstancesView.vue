@@ -3,8 +3,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
+import SkeletonLoader from '../components/SkeletonLoader.vue'
 import { listInstances, formatDate } from '../api/billing.js'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const router = useRouter()
 const instances = ref([])
 const loading = ref(true)
@@ -52,14 +55,14 @@ const statusCounts = computed(() => {
   return counts
 })
 
-const filterTabs = [
-  { key: 'all', label: 'All' },
-  { key: 'running', label: 'Running' },
-  { key: 'stopped', label: 'Stopped' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'suspended', label: 'Suspended' },
-  { key: 'terminated', label: 'Terminated' }
-]
+const filterTabs = computed(() => [
+  { key: 'all', label: t('instances.all') },
+  { key: 'running', label: t('instances.running') },
+  { key: 'stopped', label: t('instances.stopped') },
+  { key: 'pending', label: t('instances.pending') },
+  { key: 'suspended', label: t('instances.suspended') },
+  { key: 'terminated', label: t('instances.terminated') }
+])
 
 function specLabel(inst) {
   const mem = inst.memory_mb >= 1024 ? `${inst.memory_mb / 1024}GB` : `${inst.memory_mb}MB`
@@ -76,11 +79,11 @@ function goToInstance(id) {
     <div class="instances-page">
       <header class="page-header">
         <div>
-          <h1 class="page-title">Instances</h1>
-          <p class="page-subtitle">Manage your VPS instances</p>
+          <h1 class="page-title">{{ t('instances.title') }}</h1>
+          <p class="page-subtitle">{{ t('instances.subtitle') }}</p>
         </div>
-        <router-link to="/instances/new" class="action-btn primary-btn">
-          <span>✦</span> New Instance
+        <router-link to="/instances/new" class="action-btn primary-btn small-btn">
+          {{ t('instances.newInstance') }}
         </router-link>
       </header>
 
@@ -99,35 +102,28 @@ function goToInstance(id) {
           </button>
         </div>
         <div class="search-box">
-          <span class="search-icon">⌕</span>
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search hostname, IP, plan..."
-            class="search-input"
-          />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input v-model="searchQuery" type="text" :placeholder="t('instances.searchPlaceholder')" class="search-input" />
         </div>
       </div>
 
-      <!-- Instance List -->
-      <div v-if="loading" class="loading-state glass-card">
-        <div class="spinner"></div>
-        <span>Loading instances...</span>
+      <!-- Loading — Skeleton Cards -->
+      <SkeletonLoader v-if="loading" variant="cards" :rows="4" />
+
+      <!-- Error — toast handles the message, just show empty state -->
+      <div v-else-if="error" class="empty-state glass-card">
+        <p>{{ t('instances.noMatch') }}</p>
       </div>
 
-      <div v-else-if="error" class="error-state glass-card">
-        <p>{{ error }}</p>
-        <button class="action-btn secondary-btn" @click="fetchInstances">Retry</button>
-      </div>
-
+      <!-- Empty -->
       <div v-else-if="filteredInstances.length === 0" class="empty-state glass-card">
-        <div class="empty-icon">◈</div>
-        <p>No instances match your filters.</p>
-        <router-link v-if="instances.length === 0" to="/instances/new" class="action-btn primary-btn">
-          Deploy Your First Instance
+        <p>{{ t('instances.noMatch') }}</p>
+        <router-link v-if="instances.length === 0" to="/instances/new" class="action-btn primary-btn small-btn">
+          {{ t('instances.deployFirst') }}
         </router-link>
       </div>
 
+      <!-- Instance List -->
       <div v-else class="instance-list">
         <div
           v-for="inst in filteredInstances"
@@ -156,8 +152,8 @@ function goToInstance(id) {
           </div>
 
           <div class="instance-card-bottom">
-            <span class="created-date">Created {{ formatDate(inst.created_at) }}</span>
-            <span v-if="inst.started_at" class="running-since">Running since {{ formatDate(inst.started_at) }}</span>
+            <span class="created-date">{{ t('instances.createdOn', { date: formatDate(inst.created_at) }) }}</span>
+            <span v-if="inst.started_at" class="running-since">{{ t('instances.runningSince', { date: formatDate(inst.started_at) }) }}</span>
           </div>
         </div>
       </div>
@@ -166,10 +162,7 @@ function goToInstance(id) {
 </template>
 
 <style scoped>
-.instances-page {
-  max-width: 1100px;
-  margin: 0 auto;
-}
+.instances-page { max-width: 1100px; margin: 0 auto; }
 
 .page-header {
   display: flex;
@@ -181,241 +174,129 @@ function goToInstance(id) {
 }
 
 .page-title {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  margin: 0; font-size: 1.75rem; font-weight: 700;
+  color: var(--text-primary);
 }
 
-.page-subtitle {
-  margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.95rem;
-}
+.page-subtitle { margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.9rem; }
 
 /* Filters */
 .filters {
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
+  padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 1rem;
 }
 
-.filter-tabs {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
-}
+.filter-tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; }
 
 .filter-tab {
-  padding: 0.45rem 0.85rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.825rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  padding: 0.4rem 0.8rem; border: 1px solid transparent; border-radius: 10px;
+  background: none; color: var(--text-muted); font-size: 0.82rem;
+  cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.35rem;
 }
 
-.filter-tab:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
-}
+.filter-tab:hover { background: var(--sidebar-hover-bg); color: var(--text-primary); }
 
 .filter-tab.active {
-  background: rgba(99, 102, 241, 0.15);
-  color: #a78bfa;
-  border-color: rgba(99, 102, 241, 0.2);
+  background: var(--accent-bg); color: var(--accent);
+  border-color: var(--accent-border);
 }
 
 .count-badge {
-  font-size: 0.7rem;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  font-weight: 600;
+  font-size: 0.68rem; background: var(--bg-code); padding: 0.1rem 0.4rem;
+  border-radius: 999px; font-weight: 600;
 }
 
-.filter-tab.active .count-badge {
-  background: rgba(99, 102, 241, 0.25);
-}
+.filter-tab.active .count-badge { background: var(--accent-bg-hover); }
 
 .search-box {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 0.45rem 0.75rem;
-}
-
-.search-icon {
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 1.1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+  background: var(--bg-input); border: 1px solid var(--border-default);
+  border-radius: 10px; padding: 0.4rem 0.75rem;
 }
 
 .search-input {
-  background: none;
-  border: none;
-  outline: none;
-  color: #fff;
-  font-size: 0.875rem;
-  width: 220px;
+  background: none; border: none; outline: none;
+  color: var(--text-primary); font-size: 0.85rem; width: 200px;
 }
 
-.search-input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
-}
+.search-input::placeholder { color: var(--text-muted); }
 
 /* Instance cards */
-.instance-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
+.instance-list { display: flex; flex-direction: column; gap: 0.75rem; }
 
 .instance-card {
-  padding: 1.25rem;
-  cursor: pointer;
-  transition: all 0.25s;
-  position: relative;
-  overflow: hidden;
+  padding: 1.25rem; cursor: pointer; transition: all 0.25s;
+  position: relative; overflow: hidden;
 }
 
 .instance-card:hover {
   transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-card-hover);
+  box-shadow: var(--glass-shadow);
 }
 
 .instance-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 0.75rem;
 }
 
-.instance-id-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
+.instance-id-col { display: flex; flex-direction: column; gap: 0.15rem; }
 
 .instance-hostname {
   font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #fff;
+  font-size: 1rem; font-weight: 600; color: var(--text-primary);
 }
 
 .instance-hash {
   font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
-  color: rgba(167, 139, 250, 0.7);
+  font-size: 0.75rem; color: var(--accent);
 }
 
-.instance-card-body {
-  margin-bottom: 0.75rem;
-}
+.instance-card-body { margin-bottom: 0.75rem; }
 
-.instance-specs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.5rem;
-}
+.instance-specs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
 
 .spec-tag {
-  font-size: 0.72rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 6px;
+  background: var(--bg-code); border: 1px solid var(--border-default);
+  color: var(--text-secondary);
 }
 
 .plan-tag {
-  background: rgba(99, 102, 241, 0.12);
-  border-color: rgba(99, 102, 241, 0.2);
-  color: #a78bfa;
-  font-weight: 600;
+  background: var(--accent-bg); border-color: var(--accent-border);
+  color: var(--accent); font-weight: 600;
 }
 
-.instance-ip {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
+.instance-ip { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
 .ip-tag {
   font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  background: rgba(34, 197, 94, 0.08);
-  border: 1px solid rgba(34, 197, 94, 0.15);
-  color: rgba(74, 222, 128, 0.8);
+  font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;
+  background: var(--success-bg); border: 1px solid var(--success-border);
+  color: var(--success);
 }
 
 .ip-tag.ipv6 {
-  color: rgba(96, 165, 250, 0.8);
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.15);
+  color: var(--info); background: var(--info-bg); border-color: var(--info-border);
 }
 
-.instance-card-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+.instance-card-bottom { display: flex; justify-content: space-between; align-items: center; }
+.created-date { font-size: 0.78rem; color: var(--text-muted); }
+.running-since { font-size: 0.78rem; color: var(--success); }
 
-.created-date {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.running-since {
-  font-size: 0.8rem;
-  color: rgba(74, 222, 128, 0.7);
-}
-
-/* Loading / Error / Empty */
-.loading-state,
-.empty-state,
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 3rem 1.5rem;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.empty-icon {
-  font-size: 2.5rem;
-  color: rgba(255, 255, 255, 0.15);
+/* States */
+.loading-state, .empty-state, .error-state {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.75rem; padding: 3rem 1.5rem; color: var(--text-muted);
 }
 
 .spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #a78bfa;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  width: 28px; height: 28px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--spinner-color);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>

@@ -3,8 +3,11 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
+import SkeletonLoader from '../components/SkeletonLoader.vue'
 import { listInstances, formatDate } from '../api/billing.js'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const router = useRouter()
 const instances = ref([])
 const loading = ref(true)
@@ -56,40 +59,49 @@ function specLabel(inst) {
   <AppLayout>
     <div class="dashboard">
       <header class="page-header">
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">VPS Instances Overview</p>
+        <h1 class="page-title">{{ t('dashboard.title') }}</h1>
+        <p class="page-subtitle">{{ t('dashboard.subtitle') }}</p>
       </header>
 
-      <!-- Stats Grid -->
-      <div class="stats-grid">
+      <!-- Stats Grid — Skeleton when loading -->
+      <SkeletonLoader v-if="loading" variant="stats" style="margin-bottom: 2rem" />
+      <div v-else class="stats-grid">
         <div class="stat-card glass-card">
-          <div class="stat-icon revenue-icon">▶</div>
+          <div class="stat-icon" style="background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </div>
           <div class="stat-content">
-            <span class="stat-label">Running</span>
+            <span class="stat-label">{{ t('dashboard.running') }}</span>
             <span class="stat-value">{{ stats.runningCount }}</span>
           </div>
         </div>
 
         <div class="stat-card glass-card">
-          <div class="stat-icon outstanding-icon">⧖</div>
+          <div class="stat-icon" style="background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
           <div class="stat-content">
-            <span class="stat-label">Pending</span>
+            <span class="stat-label">{{ t('dashboard.pending') }}</span>
             <span class="stat-value">{{ stats.pendingCount }}</span>
           </div>
         </div>
 
         <div class="stat-card glass-card">
-          <div class="stat-icon paid-icon">■</div>
+          <div class="stat-icon" style="background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="12" height="16" rx="1"/></svg>
+          </div>
           <div class="stat-content">
-            <span class="stat-label">Stopped</span>
+            <span class="stat-label">{{ t('dashboard.stopped') }}</span>
             <span class="stat-value">{{ stats.stoppedCount }}</span>
           </div>
         </div>
 
         <div class="stat-card glass-card">
-          <div class="stat-icon draft-icon">⚠</div>
+          <div class="stat-icon" style="background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
           <div class="stat-content">
-            <span class="stat-label">Suspended</span>
+            <span class="stat-label">{{ t('dashboard.suspended') }}</span>
             <span class="stat-value">{{ stats.suspendedCount }}</span>
           </div>
         </div>
@@ -98,51 +110,47 @@ function specLabel(inst) {
       <!-- Recent Instances -->
       <section class="recent-section glass-card">
         <div class="section-header">
-          <h2>Recent Instances</h2>
-          <router-link to="/instances" class="view-all-link">View All →</router-link>
+          <h2>{{ t('dashboard.recentInstances') }}</h2>
+          <router-link to="/instances" class="view-all-link">{{ t('common.viewAll') }}</router-link>
         </div>
 
-        <div v-if="loading" class="loading-state">
-          <div class="spinner"></div>
-          <span>Loading instances...</span>
-        </div>
+        <SkeletonLoader v-if="loading" variant="table" :rows="5" />
 
         <div v-else-if="error" class="error-state">
           <span>{{ error }}</span>
-          <button class="retry-btn" @click="fetchInstances">Retry</button>
         </div>
 
         <div v-else-if="recentInstances.length === 0" class="empty-state">
-          <p>No instances yet.</p>
-          <router-link to="/instances/new" class="action-btn primary-btn">
-            Deploy Your First Instance
+          <p>{{ t('dashboard.noInstances') }}</p>
+          <router-link to="/instances/new" class="action-btn primary-btn small-btn">
+            {{ t('dashboard.deployFirst') }}
           </router-link>
         </div>
 
-        <table v-else class="orders-table">
+        <table v-else class="data-table">
           <thead>
             <tr>
-              <th>Hostname</th>
-              <th>Plan</th>
-              <th>Specs</th>
-              <th>Status</th>
-              <th>IP</th>
-              <th>Created</th>
+              <th>{{ t('dashboard.hostname') }}</th>
+              <th>{{ t('dashboard.plan') }}</th>
+              <th>{{ t('dashboard.specs') }}</th>
+              <th>{{ t('dashboard.status') }}</th>
+              <th>{{ t('dashboard.ip') }}</th>
+              <th>{{ t('dashboard.createdAt') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr
               v-for="inst in recentInstances"
               :key="inst.id"
-              class="order-row"
+              class="table-row"
               @click="goToInstance(inst.id)"
             >
-              <td class="hostname">{{ inst.hostname }}</td>
+              <td class="cell-mono fw-600">{{ inst.hostname }}</td>
               <td>{{ inst.plan }}</td>
-              <td class="specs">{{ specLabel(inst) }}</td>
+              <td class="cell-muted">{{ specLabel(inst) }}</td>
               <td><StatusBadge :status="inst.status" /></td>
-              <td class="ip-cell">{{ inst.ipv4 || '—' }}</td>
-              <td>{{ formatDate(inst.created_at) }}</td>
+              <td class="cell-mono cell-success">{{ inst.ipv4 || '—' }}</td>
+              <td class="cell-muted">{{ formatDate(inst.created_at) }}</td>
             </tr>
           </tbody>
         </table>
@@ -151,14 +159,18 @@ function specLabel(inst) {
       <!-- Quick Actions -->
       <section class="quick-actions">
         <router-link to="/instances/new" class="quick-action-card glass-card">
-          <span class="qa-icon">✦</span>
-          <span class="qa-label">New Instance</span>
-          <span class="qa-desc">Deploy a new VPS instance</span>
+          <span class="qa-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+          <span class="qa-label">{{ t('dashboard.newInstance') }}</span>
+          <span class="qa-desc">{{ t('dashboard.deployNewVPS') }}</span>
         </router-link>
         <router-link to="/instances" class="quick-action-card glass-card">
-          <span class="qa-icon">◈</span>
-          <span class="qa-label">All Instances</span>
-          <span class="qa-desc">View and manage instances</span>
+          <span class="qa-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </span>
+          <span class="qa-label">{{ t('dashboard.allInstances') }}</span>
+          <span class="qa-desc">{{ t('dashboard.viewAndManage') }}</span>
         </router-link>
       </section>
     </div>
@@ -171,30 +183,25 @@ function specLabel(inst) {
   margin: 0 auto;
 }
 
-.page-header {
-  margin-bottom: 2rem;
-}
+.page-header { margin-bottom: 2rem; }
 
 .page-title {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
 }
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.95rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 /* Stats */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
@@ -207,61 +214,32 @@ function specLabel(inst) {
 }
 
 .stat-icon {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
-  font-weight: 700;
   flex-shrink: 0;
 }
 
-.revenue-icon {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.2);
-}
-
-.outstanding-icon {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.2);
-}
-
-.draft-icon {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-}
-
-.paid-icon {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.2);
-}
-
-.stat-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
+.stat-content { display: flex; flex-direction: column; gap: 0.1rem; }
 
 .stat-label {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.78rem;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: 500;
 }
 
 .stat-value {
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
-/* Recent orders section */
+/* Recent section */
 .recent-section {
   padding: 1.5rem;
   margin-bottom: 2rem;
@@ -276,118 +254,96 @@ function specLabel(inst) {
 
 .section-header h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .view-all-link {
-  color: #a78bfa;
+  color: var(--accent);
   text-decoration: none;
   font-size: 0.85rem;
   font-weight: 500;
   transition: color 0.2s;
 }
 
-.view-all-link:hover {
-  color: #c4b5fd;
-}
+.view-all-link:hover { color: var(--accent-light); }
 
 /* Table */
-.orders-table {
+.data-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.orders-table th {
+.data-table th {
   text-align: left;
-  padding: 0.65rem 0.75rem;
-  font-size: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--divider);
 }
 
-.orders-table td {
-  padding: 0.8rem 0.75rem;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+.data-table td {
+  padding: 0.75rem;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.order-row {
+.table-row {
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
-.order-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+.table-row:hover {
+  background: var(--bg-card-hover);
 }
 
-.order-id {
+.cell-mono {
   font-family: 'SF Mono', 'Fira Code', monospace;
-  color: #a78bfa;
-  font-weight: 500;
+  font-size: 0.82rem;
 }
 
-.hostname {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #fff;
-}
+.fw-600 { font-weight: 600; color: var(--text-primary); }
+.cell-muted { color: var(--text-muted); font-size: 0.82rem; }
+.cell-success { color: var(--success); }
 
-.specs {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.ip-cell {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 0.8rem;
-  color: rgba(74, 222, 128, 0.8);
-}
-
-/* Empty / Loading / Error */
-.loading-state,
-.empty-state,
-.error-state {
+/* States */
+.loading-state, .empty-state, .error-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
   padding: 2rem 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
 }
 
 .spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #a78bfa;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--spinner-color);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .retry-btn {
   padding: 0.4rem 1rem;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  border: 1px solid var(--border-default);
+  background: var(--bg-input);
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 0.85rem;
+  transition: background 0.2s;
 }
 
-.retry-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+.retry-btn:hover { background: var(--bg-card-hover); }
 
 /* Quick Actions */
 .quick-actions {
@@ -410,22 +366,11 @@ function specLabel(inst) {
 
 .quick-action-card:hover {
   transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-card-hover);
+  box-shadow: var(--glass-shadow);
 }
 
-.qa-icon {
-  font-size: 1.75rem;
-  color: #a78bfa;
-}
-
-.qa-label {
-  font-weight: 600;
-  color: #fff;
-  font-size: 1rem;
-}
-
-.qa-desc {
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.825rem;
-}
+.qa-icon { color: var(--accent); }
+.qa-label { font-weight: 600; color: var(--text-primary); font-size: 0.95rem; }
+.qa-desc { color: var(--text-muted); font-size: 0.82rem; }
 </style>

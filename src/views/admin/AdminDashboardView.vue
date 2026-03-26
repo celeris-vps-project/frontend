@@ -1,11 +1,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/AdminLayout.vue'
 import NodeStatusBadge from '../../components/NodeStatusBadge.vue'
 import { listHostNodes, formatPercent } from '../../api/admin'
 import { useNodeStatusWS } from '../../api/ws'
 
+const { t } = useI18n()
 const router = useRouter()
 const nodes = ref([])
 const loading = ref(true)
@@ -60,14 +62,22 @@ const stats = computed(() => {
 function goToNode(id) {
   router.push(`/admin/nodes/${id}`)
 }
+
+// Dynamic color based on usage percentage
+function usageColor(val) {
+  if (val == null) return '#4b5563'
+  if (val < 50) return '#22c55e'
+  if (val < 80) return '#f59e0b'
+  return '#ef4444'
+}
 </script>
 
 <template>
   <AdminLayout>
     <div class="admin-overview">
       <header class="page-header">
-        <h1 class="page-title">Admin Overview</h1>
-        <p class="page-subtitle">Infrastructure at a glance</p>
+        <h1 class="page-title">{{ t('admin.overview') }}</h1>
+        <p class="page-subtitle">{{ t('admin.overviewSubtitle') }}</p>
       </header>
 
       <!-- Stats Grid -->
@@ -75,7 +85,7 @@ function goToNode(id) {
         <div class="stat-card glass-card">
           <div class="stat-icon online-icon">⬢</div>
           <div class="stat-content">
-            <span class="stat-label">Online Nodes</span>
+            <span class="stat-label">{{ t('admin.onlineNodes') }}</span>
             <span class="stat-value">{{ stats.online }}</span>
           </div>
         </div>
@@ -83,7 +93,7 @@ function goToNode(id) {
         <div class="stat-card glass-card">
           <div class="stat-icon offline-icon">⬡</div>
           <div class="stat-content">
-            <span class="stat-label">Offline Nodes</span>
+            <span class="stat-label">{{ t('admin.offlineNodes') }}</span>
             <span class="stat-value">{{ stats.offline }}</span>
           </div>
         </div>
@@ -91,7 +101,7 @@ function goToNode(id) {
         <div class="stat-card glass-card">
           <div class="stat-icon vm-icon">◈</div>
           <div class="stat-content">
-            <span class="stat-label">Total VMs</span>
+            <span class="stat-label">{{ t('admin.totalVMs') }}</span>
             <span class="stat-value">{{ stats.totalVMs }}</span>
           </div>
         </div>
@@ -99,7 +109,7 @@ function goToNode(id) {
         <div class="stat-card glass-card">
           <div class="stat-icon cpu-icon">⚡</div>
           <div class="stat-content">
-            <span class="stat-label">Avg CPU</span>
+            <span class="stat-label">{{ t('admin.avgCPU') }}</span>
             <span class="stat-value">{{ formatPercent(stats.avgCPU) }}</span>
           </div>
         </div>
@@ -108,24 +118,24 @@ function goToNode(id) {
       <!-- Node List -->
       <section class="nodes-section glass-card">
         <div class="section-header">
-          <h2>Host Nodes</h2>
-          <router-link to="/admin/nodes" class="view-all-link">View All →</router-link>
+          <h2>{{ t('admin.hostNodes') }}</h2>
+          <router-link to="/admin/nodes" class="view-all-link">{{ t('admin.viewAll') }}</router-link>
         </div>
 
         <div v-if="loading" class="loading-state">
           <div class="spinner"></div>
-          <span>Loading nodes...</span>
+          <span>{{ t('admin.loadingNodes') }}</span>
         </div>
 
         <div v-else-if="error" class="error-state">
           <span>{{ error }}</span>
-          <button class="retry-btn" @click="fetchNodes">Retry</button>
+          <button class="retry-btn" @click="fetchNodes">{{ t('common.retry') }}</button>
         </div>
 
         <div v-else-if="mergedNodes.length === 0" class="empty-state">
-          <p>No host nodes registered yet.</p>
+          <p>{{ t('admin.noNodes') }}</p>
           <router-link to="/admin/nodes/new" class="action-btn primary-btn small-btn">
-            Add First Node
+            {{ t('admin.addFirstNode') }}
           </router-link>
         </div>
 
@@ -153,9 +163,30 @@ function goToNode(id) {
               <td>{{ node.name }}</td>
               <td>{{ node.location }}</td>
               <td><NodeStatusBadge :status="node.status" /></td>
-              <td>{{ formatPercent(node.cpu_usage) }}</td>
-              <td>{{ formatPercent(node.mem_usage) }}</td>
-              <td>{{ formatPercent(node.disk_usage) }}</td>
+              <td class="usage-cell">
+                <div class="table-bar-track">
+                  <div class="table-bar-fill" :style="{ width: `${node.cpu_usage || 0}%`, background: usageColor(node.cpu_usage) }">
+                    <span v-if="node.cpu_usage >= 15" class="table-bar-text">{{ formatPercent(node.cpu_usage) }}</span>
+                  </div>
+                  <span v-if="!node.cpu_usage || node.cpu_usage < 15" class="table-bar-text-out">{{ formatPercent(node.cpu_usage) }}</span>
+                </div>
+              </td>
+              <td class="usage-cell">
+                <div class="table-bar-track">
+                  <div class="table-bar-fill" :style="{ width: `${node.mem_usage || 0}%`, background: usageColor(node.mem_usage) }">
+                    <span v-if="node.mem_usage >= 15" class="table-bar-text">{{ formatPercent(node.mem_usage) }}</span>
+                  </div>
+                  <span v-if="!node.mem_usage || node.mem_usage < 15" class="table-bar-text-out">{{ formatPercent(node.mem_usage) }}</span>
+                </div>
+              </td>
+              <td class="usage-cell">
+                <div class="table-bar-track">
+                  <div class="table-bar-fill" :style="{ width: `${node.disk_usage || 0}%`, background: usageColor(node.disk_usage) }">
+                    <span v-if="node.disk_usage >= 15" class="table-bar-text">{{ formatPercent(node.disk_usage) }}</span>
+                  </div>
+                  <span v-if="!node.disk_usage || node.disk_usage < 15" class="table-bar-text-out">{{ formatPercent(node.disk_usage) }}</span>
+                </div>
+              </td>
               <td>{{ node.vm_count }}</td>
             </tr>
           </tbody>
@@ -177,7 +208,7 @@ function goToNode(id) {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -185,7 +216,7 @@ function goToNode(id) {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -213,14 +244,14 @@ function goToNode(id) {
   font-size: 1.3rem;
 }
 
-.online-icon { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
-.offline-icon { background: rgba(239, 68, 68, 0.15); color: #f87171; }
-.vm-icon { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
-.cpu-icon { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.online-icon { background: var(--success-bg); color: var(--success); }
+.offline-icon { background: var(--danger-bg); color: var(--danger); }
+.vm-icon { background: var(--accent-bg); color: var(--accent); }
+.cpu-icon { background: var(--warning-bg); color: var(--warning); }
 
 .stat-content { display: flex; flex-direction: column; }
-.stat-label { font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); font-weight: 500; }
-.stat-value { font-size: 1.5rem; font-weight: 700; color: #fff; }
+.stat-label { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; }
+.stat-value { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
 
 .nodes-section { padding: 1.5rem; }
 .section-header {
@@ -229,14 +260,14 @@ function goToNode(id) {
   justify-content: space-between;
   margin-bottom: 1rem;
 }
-.section-header h2 { margin: 0; font-size: 1.15rem; color: #fff; }
+.section-header h2 { margin: 0; font-size: 1.15rem; color: var(--text-primary); }
 .view-all-link {
-  color: rgba(167, 139, 250, 0.8);
+  color: var(--accent);
   text-decoration: none;
   font-size: 0.85rem;
   font-weight: 500;
 }
-.view-all-link:hover { color: #a78bfa; }
+.view-all-link:hover { color: var(--accent); }
 
 .loading-state, .error-state, .empty-state {
   display: flex;
@@ -244,12 +275,12 @@ function goToNode(id) {
   align-items: center;
   gap: 0.75rem;
   padding: 2rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 24px; height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--border-default);
   border-top: 2px solid #a78bfa;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -267,16 +298,62 @@ function goToNode(id) {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--divider);
 }
 .nodes-table td {
   padding: 0.75rem;
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--divider);
 }
 .node-row { cursor: pointer; transition: background 0.15s; }
-.node-row:hover { background: rgba(255, 255, 255, 0.03); }
-.code-cell { font-family: monospace; color: #a78bfa; font-weight: 600; }
+.node-row:hover { background: var(--bg-card); }
+.code-cell { font-family: monospace; color: var(--accent); font-weight: 600; }
+
+/* ─── Table Progress Bars ─── */
+.usage-cell {
+  min-width: 100px;
+}
+
+.table-bar-track {
+  position: relative;
+  width: 100%;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.table-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  min-width: 0;
+  transition: width 0.5s ease, background 0.5s ease;
+}
+
+.table-bar-text {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+}
+
+.table-bar-text-out {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+}
 </style>

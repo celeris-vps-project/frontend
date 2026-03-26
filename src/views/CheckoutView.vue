@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
-import { getOrder, payOrder } from '../api/billing.js'
+import { getOrder } from '../api/billing.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -66,38 +66,12 @@ function osLabel(os) {
   return osList[os] || os || '—'
 }
 
-// ── Pay button handler ──
+// ── Pay button handler — redirects to USDT crypto payment page ──
 
-async function handlePay() {
+function handlePay() {
   if (paying.value || paymentStatus.value === 'confirmed') return
-  payError.value = ''
-  paying.value = true
-  paymentStatus.value = 'processing'
-
-  try {
-    const result = await payOrder(orderID)
-
-    // Capture linked invoice ID from pay response
-    if (result.invoice_id) {
-      invoiceID.value = result.invoice_id
-    }
-
-    // Mock provider returns "pending" — we need to poll for the webhook to fire
-    if (result.status === 'pending') {
-      startPolling()
-    } else if (result.status === 'success') {
-      paymentStatus.value = 'confirmed'
-      paying.value = false
-    } else {
-      paymentStatus.value = 'failed'
-      payError.value = 'Payment was not successful: ' + (result.message || result.status)
-      paying.value = false
-    }
-  } catch (err) {
-    paymentStatus.value = 'failed'
-    payError.value = err.message || 'Payment failed'
-    paying.value = false
-  }
+  // Navigate to the dedicated crypto payment page
+  router.push(`/orders/${orderID}/pay`)
 }
 
 // ── Poll order status until it becomes "active" ──
@@ -235,7 +209,7 @@ function goBack() {
             </div>
             <div class="pay-row">
               <span class="pay-label">Payment Method</span>
-              <span class="pay-value method-badge">Mock Payment Gateway</span>
+              <span class="pay-value method-badge usdt-method">₮ USDT (Multi-Chain)</span>
             </div>
           </div>
 
@@ -246,8 +220,8 @@ function goBack() {
           <!-- Idle: ready to pay -->
           <div v-if="paymentStatus === 'idle'" class="pay-action">
             <p class="pay-info">Click below to complete your payment. Your instance will be provisioned automatically after payment confirmation.</p>
-            <button class="action-btn primary-btn pay-btn" @click="handlePay" :disabled="paying">
-              Pay {{ formatPrice(order.price_amount, order.currency) }}
+            <button class="action-btn primary-btn pay-btn usdt-pay-btn" @click="handlePay" :disabled="paying">
+              ₮ Pay with USDT →
             </button>
           </div>
 
@@ -323,7 +297,7 @@ function goBack() {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -331,7 +305,7 @@ function goBack() {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -342,7 +316,7 @@ function goBack() {
   gap: 0.75rem;
   padding: 3rem;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .error-state {
@@ -354,7 +328,7 @@ function goBack() {
 }
 
 .error-text {
-  color: #fca5a5;
+  color: var(--danger);
 }
 
 /* ─── Checkout panels ─── */
@@ -381,7 +355,7 @@ function goBack() {
   gap: 0.6rem;
   margin-bottom: 1.5rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--divider);
 }
 
 .panel-icon {
@@ -392,7 +366,7 @@ function goBack() {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 /* ─── Specs panel ─── */
@@ -411,12 +385,12 @@ function goBack() {
 
 .spec-label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .spec-value {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -427,7 +401,7 @@ function goBack() {
 
 .spec-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-input);
   margin: 0.35rem 0;
 }
 
@@ -441,7 +415,7 @@ function goBack() {
 
 .status-label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .status-badge {
@@ -454,21 +428,21 @@ function goBack() {
 }
 
 .status-badge.pending {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.25);
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
 }
 
 .status-badge.active {
-  background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.25);
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
 }
 
 .status-badge.cancelled, .status-badge.terminated {
-  background: rgba(239, 68, 68, 0.12);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger-border);
 }
 
 .payment-summary {
@@ -485,19 +459,19 @@ function goBack() {
 
 .pay-label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .pay-value {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .price-large {
   font-size: 1.3rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #f87171, #fb923c);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -506,15 +480,30 @@ function goBack() {
 .method-badge {
   padding: 0.15rem 0.5rem;
   border-radius: 6px;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
   font-size: 0.75rem;
-  color: #a78bfa;
+  color: var(--accent);
+}
+
+.method-badge.usdt-method {
+  background: var(--success-bg);
+  border-color: var(--success-border);
+  color: #26a17b;
+}
+
+.usdt-pay-btn {
+  background: linear-gradient(135deg, #26a17b, #1a8a68) !important;
+  box-shadow: 0 2px 8px rgba(38, 161, 123, 0.3) !important;
+}
+
+.usdt-pay-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 16px rgba(38, 161, 123, 0.45) !important;
 }
 
 .pay-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-input);
   margin: 1.25rem 0;
 }
 
@@ -527,7 +516,7 @@ function goBack() {
 
 .pay-info {
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   line-height: 1.5;
   margin: 0;
 }
@@ -552,7 +541,7 @@ function goBack() {
 }
 
 .pay-status.processing {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 .status-info {
@@ -565,13 +554,13 @@ function goBack() {
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .status-desc {
   margin: 0;
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   line-height: 1.45;
 }
 
@@ -579,9 +568,9 @@ function goBack() {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: rgba(34, 197, 94, 0.15);
-  border: 2px solid rgba(34, 197, 94, 0.4);
-  color: #4ade80;
+  background: var(--success-bg);
+  border: 2px solid var(--success-border);
+  color: var(--success);
   font-size: 1.4rem;
   font-weight: 700;
   display: flex;
@@ -593,9 +582,9 @@ function goBack() {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: rgba(239, 68, 68, 0.15);
-  border: 2px solid rgba(239, 68, 68, 0.4);
-  color: #f87171;
+  background: var(--danger-bg);
+  border: 2px solid var(--danger-border);
+  color: var(--danger);
   font-size: 1.4rem;
   font-weight: 700;
   display: flex;
@@ -607,8 +596,8 @@ function goBack() {
 .spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #a78bfa;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -632,8 +621,8 @@ function goBack() {
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: #fff;
+  background: var(--accent-gradient);
+  color: var(--text-primary);
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
@@ -648,14 +637,14 @@ function goBack() {
 }
 
 .secondary-btn {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
 }
 
 .secondary-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
 }
 
 /* ─── Invoice link & confirmed actions ─── */
@@ -664,7 +653,7 @@ function goBack() {
 }
 
 .invoice-id {
-  color: #a78bfa;
+  color: var(--accent);
   text-decoration: none;
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 0.78rem;
@@ -672,7 +661,7 @@ function goBack() {
 
 .invoice-id:hover {
   text-decoration: underline;
-  color: #c4b5fd;
+  color: var(--accent-light);
 }
 
 .confirmed-actions {

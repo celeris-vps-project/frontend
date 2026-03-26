@@ -394,7 +394,7 @@ async function handleSubmit() {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -402,7 +402,7 @@ async function handleSubmit() {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -429,9 +429,9 @@ async function handleSubmit() {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  color: #a78bfa;
+  background: var(--accent-bg-hover);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
   font-size: 0.8rem;
   font-weight: 700;
   display: flex;
@@ -441,9 +441,9 @@ async function handleSubmit() {
 }
 
 .step-num.done {
-  background: rgba(34, 197, 94, 0.15);
-  border-color: rgba(34, 197, 94, 0.35);
-  color: #4ade80;
+  background: var(--success-bg);
+  border-color: var(--success-border);
+  color: var(--success);
   font-size: 0.7rem;
 }
 
@@ -451,15 +451,15 @@ async function handleSubmit() {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   flex: 1;
 }
 
 .change-btn {
   background: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.75rem;
   padding: 0.25rem 0.6rem;
   cursor: pointer;
@@ -467,8 +467,8 @@ async function handleSubmit() {
 }
 
 .change-btn:hover {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
 }
 
 /* ─── Chosen pill (collapsed selection) ─── */
@@ -478,7 +478,7 @@ async function handleSubmit() {
   gap: 0.5rem;
   padding: 0.5rem 0.85rem;
   background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--accent-border);
   border-radius: 8px;
   font-size: 0.85rem;
 }
@@ -489,18 +489,18 @@ async function handleSubmit() {
 
 .chosen-label {
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .chosen-code {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   font-size: 0.78rem;
 }
 
 .chosen-price {
   margin-left: auto;
   font-weight: 700;
-  background: linear-gradient(135deg, #f87171, #fb923c);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -520,15 +520,15 @@ async function handleSubmit() {
   gap: 0.85rem;
   padding: 1.1rem 1.25rem;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .location-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--bg-input);
+  border-color: var(--text-muted);
   transform: translateY(-1px);
 }
 
@@ -545,12 +545,12 @@ async function handleSubmit() {
 .loc-city {
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .loc-country {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   margin-top: 0.1rem;
 }
 
@@ -564,13 +564,13 @@ async function handleSubmit() {
 
 .loc-plans {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .loc-from {
   font-size: 0.78rem;
   font-weight: 600;
-  background: linear-gradient(135deg, #f87171, #fb923c);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -586,8 +586,8 @@ async function handleSubmit() {
 .plan-card {
   padding: 1.25rem;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -596,21 +596,21 @@ async function handleSubmit() {
 }
 
 .plan-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--bg-input);
+  border-color: var(--text-muted);
   transform: translateY(-1px);
 }
 
 .plan-card.selected {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
   box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15);
 }
 
 .plan-name {
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .plan-specs-detail {
@@ -624,7 +624,7 @@ async function handleSubmit() {
   align-items: center;
   gap: 0.45rem;
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 .plan-spec-icon {
@@ -637,7 +637,7 @@ async function handleSubmit() {
 .plan-price {
   font-size: 1.35rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #f87171, #fb923c);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -647,7 +647,7 @@ async function handleSubmit() {
 .per-mo {
   font-size: 0.75rem;
   font-weight: 400;
-  -webkit-text-fill-color: rgba(255, 255, 255, 0.4);
+  -webkit-text-fill-color: var(--text-muted);
 }
 
 /* ─── Loading / Error / Empty states ─── */
@@ -657,7 +657,7 @@ async function handleSubmit() {
   gap: 0.75rem;
   padding: 2.5rem;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -667,7 +667,7 @@ async function handleSubmit() {
   align-items: center;
   gap: 0.75rem;
   padding: 2.5rem;
-  color: #fca5a5;
+  color: var(--danger);
   font-size: 0.9rem;
 }
 
@@ -677,7 +677,7 @@ async function handleSubmit() {
   align-items: center;
   gap: 0.5rem;
   padding: 2.5rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .empty-icon {
@@ -690,7 +690,7 @@ async function handleSubmit() {
   align-items: center;
   gap: 0.6rem;
   padding: 0.5rem 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.85rem;
   margin-bottom: 0.5rem;
 }
@@ -698,10 +698,10 @@ async function handleSubmit() {
 /* ─── Form ─── */
 .form-error {
   padding: 0.75rem 1rem;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   border-radius: 8px;
-  color: #fca5a5;
+  color: var(--danger);
   font-size: 0.875rem;
   margin-bottom: 1rem;
 }
@@ -735,18 +735,18 @@ async function handleSubmit() {
 
 .form-group label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .form-group input,
 .form-group select {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 0.6rem 0.75rem;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.875rem;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -754,23 +754,23 @@ async function handleSubmit() {
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-border);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
 .form-group input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
 }
 
 .form-group select option {
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--bg-base);
+  color: var(--text-primary);
 }
 
 /* ─── Summary ─── */
 .summary-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   padding: 1.25rem;
 }
@@ -779,7 +779,7 @@ async function handleSubmit() {
   margin: 0 0 0.75rem;
   font-size: 0.9rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
 }
 
 .summary-grid {
@@ -797,12 +797,12 @@ async function handleSubmit() {
 
 .summary-label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .summary-value {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -811,7 +811,7 @@ async function handleSubmit() {
 }
 
 .total-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--divider);
   padding-top: 0.6rem;
   margin-top: 0.25rem;
 }
@@ -819,7 +819,7 @@ async function handleSubmit() {
 .summary-value.price {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .submit-btn {
@@ -834,14 +834,14 @@ async function handleSubmit() {
   align-items: center;
   gap: 0.75rem;
   padding: 3rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #a78bfa;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

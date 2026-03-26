@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/AdminLayout.vue'
 import { listAllProducts, enableProduct, disableProduct } from '../../api/admin'
 
+const { t } = useI18n()
 const router = useRouter()
 const products = ref([])
 const loading = ref(true)
@@ -53,11 +55,11 @@ const statusCounts = computed(() => {
   }
 })
 
-const filterTabs = [
-  { key: 'all', label: 'All' },
-  { key: 'enabled', label: 'On Sale' },
-  { key: 'disabled', label: 'Disabled' }
-]
+const filterTabs = computed(() => [
+  { key: 'all', label: t('adminProducts.all') },
+  { key: 'enabled', label: t('adminProducts.onSale') },
+  { key: 'disabled', label: t('adminProducts.disabled') }
+])
 
 function formatPrice(amount, currency) {
   const value = (amount / 100).toFixed(2)
@@ -93,11 +95,11 @@ function goToProduct(id) {
     <div class="products-page">
       <header class="page-header">
         <div>
-          <h1 class="page-title">Products</h1>
-          <p class="page-subtitle">Manage VPS plans offered to customers</p>
+          <h1 class="page-title">{{ t('adminProducts.title') }}</h1>
+          <p class="page-subtitle">{{ t('adminProducts.subtitle') }}</p>
         </div>
         <router-link to="/admin/products/new" class="action-btn primary-btn small-btn">
-          <span>✦</span> New Product
+          {{ t('adminProducts.newProduct') }}
         </router-link>
       </header>
 
@@ -120,7 +122,7 @@ function goToProduct(id) {
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search name or slug..."
+            :placeholder="t('adminProducts.searchPlaceholder')"
             class="search-input"
           />
         </div>
@@ -129,21 +131,21 @@ function goToProduct(id) {
       <!-- Loading -->
       <div v-if="loading" class="loading-state glass-card">
         <div class="spinner"></div>
-        <span>Loading products...</span>
+        <span>{{ t('adminProducts.loadingProducts') }}</span>
       </div>
 
       <!-- Error -->
       <div v-else-if="error" class="error-state glass-card">
         <p>{{ error }}</p>
-        <button class="action-btn secondary-btn small-btn" @click="fetchProducts">Retry</button>
+        <button class="action-btn secondary-btn small-btn" @click="fetchProducts">{{ t('common.retry') }}</button>
       </div>
 
       <!-- Empty -->
       <div v-else-if="filteredProducts.length === 0" class="empty-state glass-card">
         <div class="empty-icon">◇</div>
-        <p>No products match your filters.</p>
+        <p>{{ t('adminProducts.noMatch') }}</p>
         <router-link v-if="products.length === 0" to="/admin/products/new" class="action-btn primary-btn small-btn">
-          Create First Product
+          {{ t('adminProducts.createFirst') }}
         </router-link>
       </div>
 
@@ -163,7 +165,7 @@ function goToProduct(id) {
             </div>
             <div class="product-status-col">
               <span class="status-badge" :class="product.enabled ? 'enabled' : 'disabled'">
-                {{ product.enabled ? 'On Sale' : 'Disabled' }}
+                {{ product.enabled ? t('adminProducts.onSale') : t('adminProducts.disabled') }}
               </span>
               <button
                 class="toggle-btn"
@@ -201,10 +203,10 @@ function goToProduct(id) {
             <span class="product-price">{{ formatPrice(product.price_amount, product.currency) }}{{ formatCycle(product.billing_cycle) }}</span>
             <span class="product-stock">
               <template v-if="product.is_unlimited">
-                <span class="stock-avail">∞</span> unlimited
+                <span class="stock-avail">{{ t('adminProducts.unlimited') }}</span>
               </template>
               <template v-else>
-                <span class="stock-avail">{{ product.available_slots }}</span> / {{ product.total_slots }} slots
+                <span class="stock-avail">{{ product.available_slots }}</span> / {{ product.total_slots }} {{ t('adminProducts.slots') }}
               </template>
             </span>
             <span class="product-id mono">{{ product.id.substring(0, 8) }}…</span>
@@ -234,7 +236,7 @@ function goToProduct(id) {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -242,7 +244,7 @@ function goToProduct(id) {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -270,7 +272,7 @@ function goToProduct(id) {
   border-radius: 8px;
   font-size: 0.825rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   background: none;
   border: 1px solid transparent;
   cursor: pointer;
@@ -278,18 +280,18 @@ function goToProduct(id) {
 }
 
 .filter-tab:hover {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  background: var(--bg-card);
 }
 
 .filter-tab.active {
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
 }
 
 .count-badge {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-input);
   padding: 0.1rem 0.45rem;
   border-radius: 6px;
   font-size: 0.7rem;
@@ -299,23 +301,23 @@ function goToProduct(id) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 0.4rem 0.75rem;
 }
 
-.search-icon { color: rgba(255, 255, 255, 0.3); font-size: 0.9rem; }
+.search-icon { color: var(--text-muted); font-size: 0.9rem; }
 
 .search-input {
   background: none;
   border: none;
   outline: none;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.85rem;
   width: 200px;
 }
-.search-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+.search-input::placeholder { color: var(--text-muted); }
 
 /* Loading / Error / Empty */
 .loading-state, .error-state, .empty-state {
@@ -324,14 +326,14 @@ function goToProduct(id) {
   align-items: center;
   gap: 0.75rem;
   padding: 3rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .empty-icon { font-size: 2.5rem; opacity: 0.3; }
 
 .spinner {
   width: 24px; height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--border-default);
   border-top: 2px solid #f87171;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -351,7 +353,7 @@ function goToProduct(id) {
   transition: all 0.2s;
 }
 .product-card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--text-muted);
   transform: translateY(-1px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
@@ -366,18 +368,18 @@ function goToProduct(id) {
 .product-name-col { display: flex; flex-direction: column; gap: 0.15rem; }
 .product-name {
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 1.05rem;
 }
 .product-slug {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   font-family: monospace;
 }
 
 .product-location {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   margin-top: 0.1rem;
 }
 
@@ -397,14 +399,14 @@ function goToProduct(id) {
   letter-spacing: 0.03em;
 }
 .status-badge.enabled {
-  background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
 }
 .status-badge.disabled {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
 }
 
 /* Toggle Switch */
@@ -426,11 +428,11 @@ function goToProduct(id) {
 }
 
 .toggle-btn.on .toggle-track {
-  background: rgba(34, 197, 94, 0.4);
+  background: var(--success-bg);
 }
 
 .toggle-btn.off .toggle-track {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--bg-card-hover);
 }
 
 .toggle-thumb {
@@ -463,8 +465,8 @@ function goToProduct(id) {
   align-items: center;
   gap: 0.2rem;
   padding: 0.6rem 0.4rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
 }
 
@@ -472,19 +474,19 @@ function goToProduct(id) {
   font-size: 0.65rem;
   text-transform: uppercase;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   letter-spacing: 0.04em;
 }
 
 .spec-value {
   font-size: 0.9rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
 }
 .spec-value small {
   font-weight: 400;
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
 }
 
 /* Bottom */
@@ -494,13 +496,13 @@ function goToProduct(id) {
   align-items: center;
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--divider);
 }
 
 .product-price {
   font-size: 1rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #f87171, #fb923c);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -508,17 +510,17 @@ function goToProduct(id) {
 
 .product-stock {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .stock-avail {
   font-weight: 700;
-  color: #4ade80;
+  color: var(--success);
 }
 
 .product-id {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
 }
 
 .mono { font-family: monospace; }

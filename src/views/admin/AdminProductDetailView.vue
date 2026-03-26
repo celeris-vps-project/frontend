@@ -404,14 +404,14 @@ function formatMemory(mb) {
   gap: 0.3rem;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 0;
   margin-bottom: 1rem;
   transition: color 0.2s;
 }
-.back-btn:hover { color: #fff; }
+.back-btn:hover { color: var(--text-primary); }
 
 /* Loading / Error */
 .loading-state, .error-state {
@@ -420,12 +420,12 @@ function formatMemory(mb) {
   align-items: center;
   gap: 0.75rem;
   padding: 3rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 24px; height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--border-default);
   border-top: 2px solid #f87171;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -446,7 +446,7 @@ function formatMemory(mb) {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -454,7 +454,7 @@ function formatMemory(mb) {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
@@ -476,32 +476,32 @@ function formatMemory(mb) {
   letter-spacing: 0.03em;
 }
 .status-badge.enabled {
-  background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
 }
 .status-badge.disabled {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
 }
 
 .danger-btn {
-  background: rgba(239, 68, 68, 0.15) !important;
-  border-color: rgba(239, 68, 68, 0.3) !important;
+  background: var(--danger-bg) !important;
+  border-color: var(--danger-border) !important;
   color: #f87171 !important;
 }
 .danger-btn:hover {
-  background: rgba(239, 68, 68, 0.25) !important;
+  background: var(--danger-bg) !important;
 }
 
 .success-btn {
-  background: rgba(34, 197, 94, 0.15) !important;
-  border-color: rgba(34, 197, 94, 0.3) !important;
+  background: var(--success-bg) !important;
+  border-color: var(--success-border) !important;
   color: #4ade80 !important;
 }
 .success-btn:hover {
-  background: rgba(34, 197, 94, 0.25) !important;
+  background: var(--success-bg) !important;
 }
 
 /* Info grid */
@@ -527,23 +527,23 @@ function formatMemory(mb) {
   font-size: 0.72rem;
   text-transform: uppercase;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   letter-spacing: 0.04em;
 }
 
 .info-value {
   font-size: 0.95rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   word-break: break-all;
 }
 
 .highlight-card {
-  border-color: rgba(248, 113, 113, 0.2);
+  border-color: var(--danger);
 }
 
 .price-value {
-  background: linear-gradient(135deg, #f87171, #fb923c);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -563,7 +563,7 @@ function formatMemory(mb) {
 }
 
 .section-desc {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   font-size: 0.85rem;
   margin: 0 0 1.25rem;
 }
@@ -583,8 +583,8 @@ function formatMemory(mb) {
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
 }
 
@@ -595,7 +595,7 @@ function formatMemory(mb) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--accent-bg);
   border-radius: 10px;
   flex-shrink: 0;
 }
@@ -610,7 +610,7 @@ function formatMemory(mb) {
   font-size: 0.7rem;
   text-transform: uppercase;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   letter-spacing: 0.04em;
 }
 
@@ -653,13 +653,13 @@ function formatMemory(mb) {
 .big-currency {
   font-size: 1.2rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .big-amount {
   font-size: 2.5rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #f87171, #fb923c);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -667,7 +667,7 @@ function formatMemory(mb) {
 
 .big-cycle {
   font-size: 1rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
 }
 
 /* Price Edit */
@@ -691,23 +691,23 @@ function formatMemory(mb) {
 
 .form-group label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .form-input, .form-select {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   padding: 0.7rem 0.85rem;
   font-size: 0.9rem;
-  color: #fff;
+  color: var(--text-primary);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-.form-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+.form-input::placeholder { color: var(--text-muted); }
 .form-input:focus, .form-select:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-border);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
@@ -720,39 +720,39 @@ function formatMemory(mb) {
 }
 
 .form-select option {
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--bg-base);
+  color: var(--text-primary);
 }
 
 .form-error {
   margin: 0.75rem 0 0;
   padding: 0.6rem 0.75rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   border-radius: 8px;
-  color: #f87171;
+  color: var(--danger);
   font-size: 0.85rem;
 }
 
 .form-success {
   margin: 0.75rem 0 0;
   padding: 0.6rem 0.75rem;
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
   border-radius: 8px;
-  color: #4ade80;
+  color: var(--success);
   font-size: 0.85rem;
 }
 
 /* Stock value in info grid */
 .stock-value {
-  color: #818cf8;
+  color: var(--accent);
   font-size: 1.1rem;
 }
 .stock-value small {
   font-weight: 400;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
 }
 
 /* Stock Section */
@@ -779,8 +779,8 @@ function formatMemory(mb) {
   align-items: center;
   gap: 0.25rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
 }
 
@@ -788,7 +788,7 @@ function formatMemory(mb) {
   font-size: 0.7rem;
   text-transform: uppercase;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   letter-spacing: 0.04em;
 }
 
@@ -799,11 +799,11 @@ function formatMemory(mb) {
 }
 
 .stock-stat-value.sold {
-  color: #fbbf24;
+  color: var(--warning);
 }
 
 .stock-stat-value.available {
-  color: #4ade80;
+  color: var(--success);
 }
 
 .stock-bar-wrapper {
@@ -816,7 +816,7 @@ function formatMemory(mb) {
 .stock-bar-track {
   flex: 1;
   height: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-input);
   border-radius: 5px;
   overflow: hidden;
 }
@@ -830,14 +830,14 @@ function formatMemory(mb) {
 
 .stock-bar-label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-family: monospace;
   white-space: nowrap;
 }
 
 .unlimited-label {
   font-family: inherit;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -848,7 +848,7 @@ function formatMemory(mb) {
   gap: 0.45rem;
   cursor: pointer;
   font-size: 0.82rem !important;
-  color: rgba(255, 255, 255, 0.65) !important;
+  color: var(--text-secondary) !important;
   user-select: none;
 }
 
@@ -865,9 +865,9 @@ function formatMemory(mb) {
   height: 44px;
   padding: 0 0.85rem;
   background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--accent-border);
   border-radius: 10px;
-  color: #818cf8;
+  color: var(--accent);
   font-size: 0.9rem;
   font-weight: 600;
   font-style: italic;
@@ -883,7 +883,7 @@ function formatMemory(mb) {
 .form-hint-note {
   margin: 0.5rem 0 0;
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
 }
 
 /* Stepper */
@@ -894,9 +894,9 @@ function formatMemory(mb) {
 
 .stepper-btn {
   width: 38px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -906,7 +906,7 @@ function formatMemory(mb) {
 }
 .stepper-btn:first-child { border-radius: 10px 0 0 10px; border-right: none; }
 .stepper-btn:last-child { border-radius: 0 10px 10px 0; border-left: none; }
-.stepper-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.stepper-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
 .stepper-input {
   border-radius: 0;

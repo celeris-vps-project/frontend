@@ -194,6 +194,45 @@ export async function adjustProductStock(id, totalSlots) {
   return res.data
 }
 
+// ---- Payment Providers (admin management) ----
+
+export async function listPaymentProviders() {
+  const res = await request('GET', '/api/v1/admin/payment-providers')
+  return res.data || []
+}
+
+export async function getPaymentProvider(id) {
+  const res = await request('GET', `/api/v1/admin/payment-providers/${id}`)
+  return res.data
+}
+
+export async function getProviderTypes() {
+  const res = await request('GET', '/api/v1/admin/payment-providers/types')
+  return res.data || []
+}
+
+export async function createPaymentProvider({ type, name, sort_order, config }) {
+  const res = await request('POST', '/api/v1/admin/payment-providers', { type, name, sort_order, config })
+  return res.data
+}
+
+export async function updatePaymentProvider(id, { name, sort_order, config }) {
+  const res = await request('PUT', `/api/v1/admin/payment-providers/${id}`, { name, sort_order, config })
+  return res.data
+}
+
+export async function enablePaymentProvider(id) {
+  return await request('POST', `/api/v1/admin/payment-providers/${id}/enable`)
+}
+
+export async function disablePaymentProvider(id) {
+  return await request('POST', `/api/v1/admin/payment-providers/${id}/disable`)
+}
+
+export async function deletePaymentProvider(id) {
+  return await request('DELETE', `/api/v1/admin/payment-providers/${id}`)
+}
+
 // ---- Format helpers ----
 
 export function formatDate(dateStr) {

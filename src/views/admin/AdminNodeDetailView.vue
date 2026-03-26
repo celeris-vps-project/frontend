@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/AdminLayout.vue'
 import NodeStatusBadge from '../../components/NodeStatusBadge.vue'
 import {
@@ -18,6 +19,7 @@ import {
 } from '../../api/admin'
 import { useNodeStatusWS } from '../../api/ws'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const nodeID = route.params.id
@@ -228,16 +230,16 @@ function goToProduct(id) {
   <AdminLayout>
     <div class="node-detail">
       <!-- Back button -->
-      <button class="back-btn" @click="router.push('/admin/nodes')">← Back to Nodes</button>
+      <button class="back-btn" @click="router.push('/admin/nodes')">{{ t('adminNodeDetail.backToNodes') }}</button>
 
       <div v-if="loading" class="loading-state glass-card">
         <div class="spinner"></div>
-        <span>Loading node details...</span>
+        <span>{{ t('adminNodeDetail.loadingNode') }}</span>
       </div>
 
       <div v-else-if="error" class="error-state glass-card">
         <p>{{ error }}</p>
-        <button class="action-btn secondary-btn small-btn" @click="fetchAll">Retry</button>
+        <button class="action-btn secondary-btn small-btn" @click="fetchAll">{{ t('common.retry') }}</button>
       </div>
 
       <template v-else-if="liveNode">
@@ -253,44 +255,44 @@ function goToProduct(id) {
         <!-- Info Cards -->
         <div class="info-grid">
           <div class="info-card glass-card">
-            <span class="info-label">IP Address</span>
+            <span class="info-label">{{ t('adminNodeDetail.ipAddress') }}</span>
             <span class="info-value mono">{{ liveNode.ip || '—' }}</span>
           </div>
           <div class="info-card glass-card">
-            <span class="info-label">Agent Version</span>
+            <span class="info-label">{{ t('adminNodeDetail.agentVersion') }}</span>
             <span class="info-value">{{ liveNode.agent_ver || '—' }}</span>
           </div>
           <div class="info-card glass-card">
-            <span class="info-label">VMs Running</span>
+            <span class="info-label">{{ t('adminNodeDetail.vmsRunning') }}</span>
             <span class="info-value">{{ liveNode.vm_count }}</span>
           </div>
           <div class="info-card glass-card">
-            <span class="info-label">Last Seen</span>
+            <span class="info-label">{{ t('adminNodeDetail.lastSeen') }}</span>
             <span class="info-value">{{ liveNode.last_seen_at ? formatDateTime(liveNode.last_seen_at) : '—' }}</span>
           </div>
         </div>
 
         <!-- Capacity & Node Management -->
         <section class="mgmt-section glass-card">
-          <h2>Capacity & Management</h2>
+          <h2>{{ t('adminNodeDetail.capacityMgmt') }}</h2>
           <div class="mgmt-grid">
             <div class="mgmt-item">
-              <span class="mgmt-label">Total Slots</span>
+              <span class="mgmt-label">{{ t('adminNodeDetail.totalSlots') }}</span>
               <span class="mgmt-value">{{ liveNode.total_slots }}</span>
             </div>
             <div class="mgmt-item">
-              <span class="mgmt-label">Used Slots</span>
+              <span class="mgmt-label">{{ t('adminNodeDetail.usedSlots') }}</span>
               <span class="mgmt-value">{{ liveNode.used_slots }}</span>
             </div>
             <div class="mgmt-item">
-              <span class="mgmt-label">Available Slots</span>
+              <span class="mgmt-label">{{ t('adminNodeDetail.availableSlots') }}</span>
               <span class="mgmt-value" :class="{ 'val-warn': liveNode.available_slots === 0 }">{{ liveNode.available_slots }}</span>
             </div>
             <div class="mgmt-item">
-              <span class="mgmt-label">Status</span>
+              <span class="mgmt-label">{{ t('adminNodeDetail.statusLabel') }}</span>
               <span class="mgmt-value">
                 <span class="status-badge" :class="liveNode.enabled ? 'enabled' : 'disabled'">
-                  {{ liveNode.enabled ? 'Enabled' : 'Disabled' }}
+                  {{ liveNode.enabled ? t('adminNodeDetail.enabled') : t('adminNodeDetail.disabled') }}
                 </span>
               </span>
             </div>
@@ -303,20 +305,20 @@ function goToProduct(id) {
               :disabled="toggleLoading"
               @click="handleToggleEnabled"
             >
-              {{ toggleLoading ? '...' : (liveNode.enabled ? 'Disable Node' : 'Enable Node') }}
+              {{ toggleLoading ? '...' : (liveNode.enabled ? t('adminNodeDetail.disableNode') : t('adminNodeDetail.enableNode')) }}
             </button>
             <button
               class="action-btn secondary-btn small-btn"
               :disabled="revokeLoading"
               @click="handleRevokeNodeToken"
             >
-              {{ revokeLoading ? '...' : 'Revoke Node Token' }}
+              {{ revokeLoading ? '...' : t('adminNodeDetail.revokeNodeToken') }}
             </button>
             <button
               class="action-btn accent-btn small-btn"
               @click="showBtForm = !showBtForm"
             >
-              {{ showBtForm ? 'Cancel' : 'New Bootstrap Token' }}
+              {{ showBtForm ? t('common.cancel') : t('adminNodeDetail.newBootstrapToken') }}
             </button>
           </div>
 
@@ -327,26 +329,26 @@ function goToProduct(id) {
             <div class="form-row">
               <label style="color: rgba(255,255,255,0.5); font-size: 0.8rem;">TTL</label>
               <select v-model.number="btTTL" class="form-select">
-                <option :value="60">1 hour</option>
-                <option :value="360">6 hours</option>
-                <option :value="1440">24 hours</option>
-                <option :value="4320">3 days</option>
-                <option :value="10080">7 days</option>
+                <option :value="60">{{ t('adminCreateNode.ttl1h') }}</option>
+                <option :value="360">{{ t('adminCreateNode.ttl6h') }}</option>
+                <option :value="1440">{{ t('adminCreateNode.ttl24h') }}</option>
+                <option :value="4320">{{ t('adminCreateNode.ttl3d') }}</option>
+                <option :value="10080">{{ t('adminCreateNode.ttl7d') }}</option>
               </select>
               <button class="action-btn primary-btn small-btn" :disabled="btLoading" @click="handleCreateBootstrapToken">
-                {{ btLoading ? 'Generating...' : 'Generate' }}
+                {{ btLoading ? t('adminNodeDetail.generating') : t('adminNodeDetail.generate') }}
               </button>
             </div>
             <p v-if="btError" class="form-error">{{ btError }}</p>
             <div v-if="btResult" class="bt-result">
-              <p class="form-success">Bootstrap token created. Copy it now — it will not be shown again.</p>
+              <p class="form-success">{{ t('adminNodeDetail.tokenCreated') }}</p>
               <div class="token-box">
                 <code class="token-value">{{ btResult.token }}</code>
-                <button type="button" class="action-btn secondary-btn small-btn" @click="copyBootstrapToken">Copy</button>
+                <button type="button" class="action-btn secondary-btn small-btn" @click="copyBootstrapToken">{{ t('common.copy') }}</button>
               </div>
-              <p class="bt-meta">Expires: {{ formatDateTime(btResult.expires_at) }}</p>
+              <p class="bt-meta">{{ t('adminNodeDetail.expires', { time: formatDateTime(btResult.expires_at) }) }}</p>
               <div class="token-yaml-hint">
-                <p class="hint-label">agent.yaml:</p>
+                <p class="hint-label">{{ t('adminNodeDetail.agentYamlExample') }}</p>
                 <pre class="yaml-block">bootstrap_token: "{{ btResult.token }}"
 grpc_address: "controller:50051"
 credential_file: "node-credential.yaml"</pre>
@@ -357,20 +359,20 @@ credential_file: "node-credential.yaml"</pre>
 
         <!-- Usage -->
         <section class="usage-section glass-card">
-          <h2>Resource Usage</h2>
+          <h2>{{ t('adminNodeDetail.resourceUsage') }}</h2>
           <div class="usage-bars">
             <div class="usage-row">
-              <span class="usage-label">CPU</span>
+              <span class="usage-label">{{ t('adminNodeDetail.cpu') }}</span>
               <div class="bar-track"><div class="bar-fill cpu-fill" :style="{ width: `${liveNode.cpu_usage}%` }"></div></div>
               <span class="usage-val">{{ formatPercent(liveNode.cpu_usage) }}</span>
             </div>
             <div class="usage-row">
-              <span class="usage-label">Memory</span>
+              <span class="usage-label">{{ t('adminNodeDetail.memory') }}</span>
               <div class="bar-track"><div class="bar-fill mem-fill" :style="{ width: `${liveNode.mem_usage}%` }"></div></div>
               <span class="usage-val">{{ formatPercent(liveNode.mem_usage) }}</span>
             </div>
             <div class="usage-row">
-              <span class="usage-label">Disk</span>
+              <span class="usage-label">{{ t('adminNodeDetail.disk') }}</span>
               <div class="bar-track"><div class="bar-fill disk-fill" :style="{ width: `${liveNode.disk_usage}%` }"></div></div>
               <span class="usage-val">{{ formatPercent(liveNode.disk_usage) }}</span>
             </div>
@@ -380,9 +382,9 @@ credential_file: "node-credential.yaml"</pre>
         <!-- IP Pool -->
         <section class="ips-section glass-card">
           <div class="section-header">
-            <h2>IP Pool ({{ ips.length }})</h2>
+            <h2>{{ t('adminNodeDetail.ipPool', { count: ips.length }) }}</h2>
             <button class="action-btn accent-btn small-btn" @click="showAddIP = !showAddIP">
-              {{ showAddIP ? 'Cancel' : '+ Add IP' }}
+              {{ showAddIP ? t('common.cancel') : t('adminNodeDetail.addIP') }}
             </button>
           </div>
 
@@ -395,21 +397,21 @@ credential_file: "node-credential.yaml"</pre>
                 <option :value="6">IPv6</option>
               </select>
               <button class="action-btn primary-btn small-btn" :disabled="ipLoading || !ipForm.address" @click="handleAddIP">
-                {{ ipLoading ? 'Adding...' : 'Add' }}
+                {{ ipLoading ? t('adminNodeDetail.adding') : t('common.create') }}
               </button>
             </div>
             <p v-if="ipError" class="form-error">{{ ipError }}</p>
           </div>
 
-          <div v-if="ips.length === 0" class="empty-inline">No IPs assigned to this node.</div>
+          <div v-if="ips.length === 0" class="empty-inline">{{ t('adminNodeDetail.noIPs') }}</div>
 
           <table v-else class="ips-table">
             <thead>
               <tr>
-                <th>Address</th>
-                <th>Version</th>
-                <th>Status</th>
-                <th>Instance</th>
+                <th>{{ t('adminNodeDetail.address') }}</th>
+                <th>{{ t('adminNodeDetail.version') }}</th>
+                <th>{{ t('adminNodeDetail.ipStatus') }}</th>
+                <th>{{ t('adminNodeDetail.instance') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -418,7 +420,7 @@ credential_file: "node-credential.yaml"</pre>
                 <td>IPv{{ ip.version }}</td>
                 <td>
                   <span class="ip-status" :class="ip.available ? 'avail' : 'assigned'">
-                    {{ ip.available ? 'Available' : 'Assigned' }}
+                    {{ ip.available ? t('adminNodeDetail.available') : t('adminNodeDetail.assigned') }}
                   </span>
                 </td>
                 <td class="mono">{{ ip.instance_id || '—' }}</td>
@@ -444,14 +446,14 @@ credential_file: "node-credential.yaml"</pre>
   gap: 0.3rem;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 0;
   margin-bottom: 1rem;
   transition: color 0.2s;
 }
-.back-btn:hover { color: #fff; }
+.back-btn:hover { color: var(--text-primary); }
 
 .node-header {
   display: flex;
@@ -465,7 +467,7 @@ credential_file: "node-credential.yaml"</pre>
   font-size: 2rem;
   font-weight: 700;
   font-family: monospace;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -473,7 +475,7 @@ credential_file: "node-credential.yaml"</pre>
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -494,7 +496,7 @@ credential_file: "node-credential.yaml"</pre>
 
 .info-label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -502,7 +504,7 @@ credential_file: "node-credential.yaml"</pre>
 
 .info-value {
   font-size: 1.1rem;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 600;
 }
 .mono { font-family: monospace; }
@@ -512,7 +514,7 @@ credential_file: "node-credential.yaml"</pre>
   padding: 1.5rem;
   margin-bottom: 1.5rem;
 }
-.usage-section h2 { margin: 0 0 1rem; font-size: 1.1rem; color: #fff; }
+.usage-section h2 { margin: 0 0 1rem; font-size: 1.1rem; color: var(--text-primary); }
 
 .usage-bars { display: flex; flex-direction: column; gap: 0.75rem; }
 
@@ -525,14 +527,14 @@ credential_file: "node-credential.yaml"</pre>
 .usage-label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   width: 60px;
 }
 
 .bar-track {
   flex: 1;
   height: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-input);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -549,7 +551,7 @@ credential_file: "node-credential.yaml"</pre>
 
 .usage-val {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   width: 55px;
   text-align: right;
   font-family: monospace;
@@ -566,7 +568,7 @@ credential_file: "node-credential.yaml"</pre>
   padding: 1.5rem;
   margin-bottom: 1.5rem;
 }
-.mgmt-section h2 { margin: 0 0 1rem; font-size: 1.1rem; color: #fff; }
+.mgmt-section h2 { margin: 0 0 1rem; font-size: 1.1rem; color: var(--text-primary); }
 
 .mgmt-grid {
   display: grid;
@@ -583,7 +585,7 @@ credential_file: "node-credential.yaml"</pre>
 
 .mgmt-label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -591,10 +593,10 @@ credential_file: "node-credential.yaml"</pre>
 
 .mgmt-value {
   font-size: 1.25rem;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 700;
 }
-.mgmt-value.val-warn { color: #f87171; }
+.mgmt-value.val-warn { color: var(--danger); }
 
 .mgmt-actions {
   display: flex;
@@ -603,12 +605,12 @@ credential_file: "node-credential.yaml"</pre>
 }
 
 .danger-btn {
-  background: rgba(239, 68, 68, 0.15) !important;
-  border-color: rgba(239, 68, 68, 0.3) !important;
+  background: var(--danger-bg) !important;
+  border-color: var(--danger-border) !important;
   color: #f87171 !important;
 }
 .danger-btn:hover {
-  background: rgba(239, 68, 68, 0.25) !important;
+  background: var(--danger-bg) !important;
 }
 
 .bt-result {
@@ -621,8 +623,8 @@ credential_file: "node-credential.yaml"</pre>
   gap: 0.5rem;
   margin: 0.5rem 0;
   padding: 0.6rem 0.85rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
 }
 
@@ -630,37 +632,37 @@ credential_file: "node-credential.yaml"</pre>
   flex: 1;
   font-family: monospace;
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   word-break: break-all;
 }
 
 .bt-meta {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   margin: 0.25rem 0 0;
 }
 
 .token-yaml-hint {
   margin-top: 0.75rem;
   padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
 }
 
 .hint-label {
   margin: 0 0 0.5rem;
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
 }
 
 .yaml-block {
   margin: 0;
   padding: 0.5rem;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-code);
   border-radius: 6px;
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
   overflow-x: auto;
   line-height: 1.5;
 }
@@ -675,14 +677,14 @@ credential_file: "node-credential.yaml"</pre>
   letter-spacing: 0.03em;
 }
 .status-badge.enabled {
-  background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
 }
 .status-badge.disabled {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
 }
 
 .section-header {
@@ -691,15 +693,15 @@ credential_file: "node-credential.yaml"</pre>
   justify-content: space-between;
   margin-bottom: 1rem;
 }
-.section-header h2 { margin: 0; font-size: 1.1rem; color: #fff; }
+.section-header h2 { margin: 0; font-size: 1.1rem; color: var(--text-primary); }
 
 /* Inline form */
 .inline-form {
   margin-bottom: 1rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-card);
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-default);
 }
 
 .form-row {
@@ -710,16 +712,16 @@ credential_file: "node-credential.yaml"</pre>
 }
 
 .form-input, .form-select {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 .form-input:focus, .form-select:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-border);
 }
 .form-select {
   appearance: none;
@@ -728,19 +730,19 @@ credential_file: "node-credential.yaml"</pre>
 
 .form-error {
   margin: 0.5rem 0 0;
-  color: #f87171;
+  color: var(--danger);
   font-size: 0.8rem;
 }
 .form-success {
   margin: 0.5rem 0 0;
-  color: #4ade80;
+  color: var(--success);
   font-size: 0.8rem;
 }
 
 .empty-inline {
   padding: 1.5rem;
   text-align: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
@@ -756,14 +758,14 @@ credential_file: "node-credential.yaml"</pre>
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--divider);
 }
 .ips-table td {
   padding: 0.65rem 0.75rem;
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--divider);
 }
 
 .ip-status {
@@ -776,20 +778,20 @@ credential_file: "node-credential.yaml"</pre>
   text-transform: uppercase;
 }
 .avail {
-  background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
+  background: var(--success-bg);
+  color: var(--success);
 }
 .assigned {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 /* Task form */
 .task-form {
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-card);
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-default);
 }
 
 .form-grid {
@@ -807,7 +809,7 @@ credential_file: "node-credential.yaml"</pre>
 
 .form-group label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -823,12 +825,12 @@ credential_file: "node-credential.yaml"</pre>
   align-items: center;
   gap: 0.75rem;
   padding: 3rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 24px; height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--border-default);
   border-top: 2px solid #f87171;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -849,15 +851,15 @@ credential_file: "node-credential.yaml"</pre>
 
 .node-product-card {
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
 }
 .node-product-card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--text-muted);
+  background: var(--bg-card);
   transform: translateY(-1px);
 }
 
@@ -869,15 +871,15 @@ credential_file: "node-credential.yaml"</pre>
 }
 
 .np-name-col { display: flex; flex-direction: column; gap: 0.1rem; }
-.np-name { font-weight: 700; color: #fff; font-size: 0.95rem; }
-.np-slug { font-size: 0.72rem; color: rgba(255, 255, 255, 0.4); font-family: monospace; }
+.np-name { font-weight: 700; color: var(--text-primary); font-size: 0.95rem; }
+.np-slug { font-size: 0.72rem; color: var(--text-muted); font-family: monospace; }
 
 
 .np-specs {
   display: flex;
   gap: 0.6rem;
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   margin-bottom: 0.6rem;
 }
 
@@ -886,13 +888,13 @@ credential_file: "node-credential.yaml"</pre>
   justify-content: space-between;
   align-items: center;
   padding-top: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--divider);
 }
 
 .np-price {
   font-size: 0.9rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #f87171, #fb923c);
+  background: var(--accent-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -900,11 +902,11 @@ credential_file: "node-credential.yaml"</pre>
 
 .np-stock {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .np-stock-avail {
   font-weight: 700;
-  color: #4ade80;
+  color: var(--success);
 }
 </style>

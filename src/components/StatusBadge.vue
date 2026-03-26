@@ -1,30 +1,18 @@
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   status: { type: String, required: true }
 })
 
-const labelMap = {
-  pending: 'Pending',
-  running: 'Running',
-  stopped: 'Stopped',
-  suspended: 'Suspended',
-  terminated: 'Terminated'
-}
-
-const badgeClass = computed(() => {
-  const map = {
-    pending: 'badge-pending',
-    running: 'badge-running',
-    stopped: 'badge-stopped',
-    suspended: 'badge-suspended',
-    terminated: 'badge-terminated'
-  }
-  return map[props.status] || 'badge-pending'
+const badgeClass = computed(() => 'badge-' + (props.status || 'pending'))
+const displayLabel = computed(() => {
+  const key = `status.${props.status}`
+  return t(key)
 })
-
-const displayLabel = computed(() => labelMap[props.status] || props.status)
 </script>
 
 <template>
@@ -35,41 +23,41 @@ const displayLabel = computed(() => labelMap[props.status] || props.status)
 .status-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.75rem;
+  padding: 0.2rem 0.65rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
 }
 
-.badge-pending {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+.badge-pending, .badge-draft {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
 }
 
-.badge-running {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+.badge-running, .badge-active, .badge-paid {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
 }
 
-.badge-stopped {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+.badge-stopped, .badge-issued {
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid var(--info-border);
 }
 
 .badge-suspended {
-  background: rgba(251, 146, 60, 0.15);
-  color: #fb923c;
-  border: 1px solid rgba(251, 146, 60, 0.3);
+  background: var(--warning-bg);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.25);
 }
 
-.badge-terminated {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+.badge-terminated, .badge-cancelled, .badge-void {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger-border);
 }
 </style>

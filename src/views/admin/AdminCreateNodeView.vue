@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/AdminLayout.vue'
 import { createHostNode } from '../../api/admin'
 
+const { t } = useI18n()
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
@@ -60,38 +62,35 @@ function goToNode() {
 <template>
   <AdminLayout>
     <div class="create-node-page">
-      <button class="back-btn" @click="router.push('/admin/nodes')">← Back to Nodes</button>
+      <button class="back-btn" @click="router.push('/admin/nodes')">{{ t('adminCreateNode.backToNodes') }}</button>
 
       <header class="page-header">
-        <h1 class="page-title">Add Host Node</h1>
-        <p class="page-subtitle">Register a new physical server in the infrastructure</p>
+        <h1 class="page-title">{{ t('adminCreateNode.title') }}</h1>
+        <p class="page-subtitle">{{ t('adminCreateNode.subtitle') }}</p>
       </header>
 
       <!-- ── Token created: show result ── -->
       <section v-if="createdToken" class="form-card glass-card token-result">
         <div class="success-icon">✓</div>
-        <h2 class="token-title">Node Created Successfully</h2>
-        <p class="token-subtitle">
-          Copy the bootstrap token below and paste it into the agent's <code>agent.yaml</code> as <code>bootstrap_token</code>.
-          This token can only be used once and will expire.
-        </p>
+        <h2 class="token-title">{{ t('adminCreateNode.nodeCreated') }}</h2>
+        <p class="token-subtitle">{{ t('adminCreateNode.tokenCopyHint') }}</p>
 
         <div class="token-box">
           <code class="token-value">{{ createdToken.token }}</code>
-          <button type="button" class="action-btn secondary-btn small-btn" @click="copyToken">Copy</button>
+          <button type="button" class="action-btn secondary-btn small-btn" @click="copyToken">{{ t('common.copy') }}</button>
         </div>
 
         <div class="token-meta">
-          <span>Expires: {{ new Date(createdToken.expires_at).toLocaleString() }}</span>
+          <span>{{ t('adminNodeDetail.expires', { time: new Date(createdToken.expires_at).toLocaleString() }) }}</span>
         </div>
 
         <div class="token-yaml-hint">
-          <p class="hint-label">agent.yaml example:</p>
+          <p class="hint-label">{{ t('adminNodeDetail.agentYamlExample') }}</p>
           <pre class="yaml-block">bootstrap_token: "{{ createdToken.token }}"</pre>
         </div>
 
         <div class="form-actions">
-          <button type="button" class="action-btn primary-btn" @click="goToNode">Go to Nodes</button>
+          <button type="button" class="action-btn primary-btn" @click="goToNode">{{ t('adminCreateNode.goToNodes') }}</button>
         </div>
       </section>
 
@@ -100,39 +99,39 @@ function goToNode() {
         <form @submit.prevent="handleSubmit">
           <div class="form-grid">
             <div class="form-group">
-              <label>Location <span class="required">*</span></label>
-              <input v-model="form.location" type="text" placeholder="e.g. DE-fra" required class="form-input" />
-              <span class="form-hint">Geographic location code (required)</span>
+              <label>{{ t('adminCreateNode.location') }} <span class="required">*</span></label>
+              <input v-model="form.location" type="text" :placeholder="t('adminCreateNode.locationPlaceholder')" required class="form-input" />
+              <span class="form-hint">{{ t('adminCreateNode.locationHint') }}</span>
             </div>
 
             <div class="form-group">
-              <label>Node Code</label>
+              <label>{{ t('adminCreateNode.nodeCode') }}</label>
               <input v-model="form.code" type="text" :placeholder="codePlaceholder" class="form-input" />
-              <span class="form-hint">Optional — auto-generated from location if left empty</span>
+              <span class="form-hint">{{ t('adminCreateNode.nodeCodeHint') }}</span>
             </div>
 
             <div class="form-group full-width">
-              <label>Name</label>
-              <input v-model="form.name" type="text" placeholder="e.g. Frankfurt #1 (optional, defaults to node code)" class="form-input" />
-              <span class="form-hint">Optional — if left empty, the node code is used as the display name</span>
+              <label>{{ t('adminCreateNode.name') }}</label>
+              <input v-model="form.name" type="text" :placeholder="t('adminCreateNode.namePlaceholder')" class="form-input" />
+              <span class="form-hint">{{ t('adminCreateNode.nameHint') }}</span>
             </div>
 
             <div class="form-group">
-              <label>Total Slots</label>
+              <label>{{ t('adminCreateNode.totalSlots') }}</label>
               <input v-model.number="form.total_slots" type="number" min="0" placeholder="e.g. 10" required class="form-input" />
-              <span class="form-hint">Max number of VMs this node can host</span>
+              <span class="form-hint">{{ t('adminCreateNode.totalSlotsHint') }}</span>
             </div>
 
             <div class="form-group">
-              <label>Bootstrap Token TTL</label>
+              <label>{{ t('adminCreateNode.bootstrapTokenTTL') }}</label>
               <select v-model.number="form.token_ttl_minutes" class="form-input">
-                <option :value="60">1 hour</option>
-                <option :value="360">6 hours</option>
-                <option :value="1440">24 hours</option>
-                <option :value="4320">3 days</option>
-                <option :value="10080">7 days</option>
+                <option :value="60">{{ t('adminCreateNode.ttl1h') }}</option>
+                <option :value="360">{{ t('adminCreateNode.ttl6h') }}</option>
+                <option :value="1440">{{ t('adminCreateNode.ttl24h') }}</option>
+                <option :value="4320">{{ t('adminCreateNode.ttl3d') }}</option>
+                <option :value="10080">{{ t('adminCreateNode.ttl7d') }}</option>
               </select>
-              <span class="form-hint">How long the bootstrap token remains valid</span>
+              <span class="form-hint">{{ t('adminCreateNode.tokenTTLHint') }}</span>
             </div>
           </div>
 
@@ -144,7 +143,7 @@ function goToNode() {
               class="action-btn primary-btn"
               :disabled="loading || !form.location"
             >
-              {{ loading ? 'Creating...' : 'Create Node' }}
+              {{ loading ? t('adminCreateNode.creatingNode') : t('adminCreateNode.createNode') }}
             </button>
           </div>
         </form>
@@ -165,14 +164,14 @@ function goToNode() {
   gap: 0.3rem;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 0;
   margin-bottom: 1rem;
   transition: color 0.2s;
 }
-.back-btn:hover { color: #fff; }
+.back-btn:hover { color: var(--text-primary); }
 
 .page-header { margin-bottom: 1.5rem; }
 
@@ -180,7 +179,7 @@ function goToNode() {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -188,7 +187,7 @@ function goToNode() {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -209,24 +208,24 @@ function goToNode() {
 
 .form-group label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .form-input {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   padding: 0.7rem 0.85rem;
   font-size: 0.9rem;
-  color: #fff;
+  color: var(--text-primary);
   transition: border-color 0.2s, box-shadow 0.2s;
   width: 100%;
 }
-.form-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+.form-input::placeholder { color: var(--text-muted); }
 .form-input:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-border);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
@@ -240,26 +239,26 @@ select.form-input {
 }
 select.form-input option {
   background: #1e1e2e;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .form-hint {
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
 }
 
 .required {
-  color: #f87171;
+  color: var(--danger);
   font-weight: 600;
 }
 
 .form-error {
   margin: 1rem 0;
   padding: 0.75rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   border-radius: 8px;
-  color: #f87171;
+  color: var(--danger);
   font-size: 0.85rem;
 }
 
@@ -277,8 +276,8 @@ select.form-input option {
   width: 48px;
   height: 48px;
   margin: 0 auto 1rem;
-  background: rgba(34, 197, 94, 0.15);
-  border: 2px solid rgba(34, 197, 94, 0.4);
+  background: var(--success-bg);
+  border: 2px solid var(--success-border);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -291,29 +290,29 @@ select.form-input option {
   margin: 0 0 0.5rem;
   font-size: 1.4rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .token-subtitle {
   margin: 0 0 1.5rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-size: 0.85rem;
   line-height: 1.5;
 }
 .token-subtitle code {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-input);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
 }
 
 .token-box {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   padding: 0.85rem 1rem;
   margin: 0 auto 1rem;
@@ -330,7 +329,7 @@ select.form-input option {
 }
 
 .token-meta {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   font-size: 0.75rem;
   margin-bottom: 1.25rem;
 }
@@ -342,18 +341,18 @@ select.form-input option {
 
 .hint-label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   margin: 0 0 0.4rem;
 }
 
 .yaml-block {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-code);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
   overflow-x: auto;
   margin: 0;
 }

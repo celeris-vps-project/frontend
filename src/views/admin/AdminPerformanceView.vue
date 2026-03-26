@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/AdminLayout.vue'
 import { usePerformanceWS } from '../../api/performance.js'
 
+const { t } = useI18n()
 Chart.register(...registerables)
 
 // ── Color palette (Grafana-inspired) ──
@@ -278,15 +280,14 @@ function updateMitigationChart(snap) {
       <header class="page-header">
         <div class="header-left">
           <h1 class="page-title">
-            <span class="title-icon">📊</span>
-            Performance Dashboard
+            {{ t('adminPerformance.title') }}
           </h1>
-          <p class="page-subtitle">Real-time endpoint metrics — Adaptive QPS monitoring</p>
+          <p class="page-subtitle">{{ t('adminPerformance.subtitle') }}</p>
         </div>
         <div class="header-right">
           <div class="connection-badge" :class="{ connected }">
             <span class="conn-dot"></span>
-            <span class="conn-label">{{ connected ? 'Live' : 'Connecting...' }}</span>
+            <span class="conn-label">{{ connected ? t('adminPerformance.live') : t('adminPerformance.connecting') }}</span>
           </div>
         </div>
       </header>
@@ -297,7 +298,7 @@ function updateMitigationChart(snap) {
           <div class="pill-icon">⚡</div>
           <div class="pill-body">
             <span class="pill-value">{{ totalQPS }}</span>
-            <span class="pill-label">Total QPS</span>
+            <span class="pill-label">{{ t('adminPerformance.totalQPS') }}</span>
           </div>
           <div class="pill-spark" :class="{ active: parseFloat(totalQPS) > 0 }"></div>
         </div>
@@ -306,7 +307,7 @@ function updateMitigationChart(snap) {
           <div class="pill-icon">✅</div>
           <div class="pill-body">
             <span class="pill-value">{{ normalCount.toLocaleString() }}</span>
-            <span class="pill-label">Normal (200)</span>
+            <span class="pill-label">{{ t('adminPerformance.normal200') }}</span>
           </div>
         </div>
 
@@ -314,7 +315,7 @@ function updateMitigationChart(snap) {
           <div class="pill-icon">🛡️</div>
           <div class="pill-body">
             <span class="pill-value">{{ mitigatedCount.toLocaleString() }}</span>
-            <span class="pill-label">Mitigated (202)</span>
+            <span class="pill-label">{{ t('adminPerformance.mitigated202') }}</span>
           </div>
         </div>
 
@@ -322,14 +323,14 @@ function updateMitigationChart(snap) {
           <div class="pill-icon">📈</div>
           <div class="pill-body">
             <span class="pill-value">{{ mitigatedPct }}%</span>
-            <span class="pill-label">Mitigation Rate</span>
+            <span class="pill-label">{{ t('adminPerformance.mitigationRate') }}</span>
           </div>
         </div>
 
         <div class="stat-pill interval-pill">
           <div class="pill-icon">⏱️</div>
           <div class="pill-body">
-            <span class="pill-label">Refresh Interval</span>
+            <span class="pill-label">{{ t('adminPerformance.refreshInterval') }}</span>
             <div class="interval-btns">
               <button
                 v-for="opt in intervalOptions"
@@ -348,8 +349,8 @@ function updateMitigationChart(snap) {
         <!-- Pie Chart -->
         <div class="glass-card chart-card">
           <div class="card-header">
-            <h3 class="card-title">Request Distribution</h3>
-            <span class="card-badge">Top 5</span>
+            <h3 class="card-title">{{ t('adminPerformance.requestDistribution') }}</h3>
+            <span class="card-badge">{{ t('adminPerformance.top5') }}</span>
           </div>
           <div class="pie-wrapper">
             <canvas ref="pieCanvasRef"></canvas>
@@ -375,10 +376,10 @@ function updateMitigationChart(snap) {
         <!-- Top 5 Endpoints List -->
         <div class="glass-card list-card">
           <div class="card-header">
-            <h3 class="card-title">Top Endpoints by QPS</h3>
+            <h3 class="card-title">{{ t('adminPerformance.topEndpointsByQPS') }}</h3>
             <span class="card-badge live-badge">
               <span class="live-dot"></span>
-              Live
+              {{ t('adminPerformance.live') }}
             </span>
           </div>
           <div class="endpoint-list" v-if="topEndpoints.length > 0">
@@ -415,8 +416,8 @@ function updateMitigationChart(snap) {
           </div>
           <div v-else class="empty-state">
             <div class="empty-icon">📡</div>
-            <p>Waiting for traffic data...</p>
-            <p class="empty-hint">Run the perftest tool to generate demo traffic</p>
+            <p>{{ t('adminPerformance.waitingForTraffic') }}</p>
+            <p class="empty-hint">{{ t('adminPerformance.runPerftest') }}</p>
           </div>
         </div>
       </div>
@@ -424,9 +425,9 @@ function updateMitigationChart(snap) {
       <!-- Row 2: Line Chart (full width) -->
       <div class="glass-card chart-card line-chart-card">
         <div class="card-header">
-          <h3 class="card-title">QPS Timeline</h3>
+            <h3 class="card-title">{{ t('adminPerformance.qpsTimeline') }}</h3>
           <div class="card-header-right">
-            <span class="card-badge">{{ history.length }} samples</span>
+            <span class="card-badge">{{ t('adminPerformance.samples', { count: history.length }) }}</span>
           </div>
         </div>
         <div class="line-chart-wrapper">
@@ -434,7 +435,7 @@ function updateMitigationChart(snap) {
         </div>
         <div v-if="history.length < 2" class="chart-overlay">
           <div class="spinner"></div>
-          <span>Collecting data points...</span>
+          <span>{{ t('adminPerformance.collectingData') }}</span>
         </div>
       </div>
 
@@ -443,14 +444,14 @@ function updateMitigationChart(snap) {
         <!-- Mitigation Panel -->
         <div class="glass-card mitigation-card">
           <div class="card-header">
-            <h3 class="card-title">Mitigation Overview</h3>
+            <h3 class="card-title">{{ t('adminPerformance.mitigationOverview') }}</h3>
           </div>
           <div class="mitigation-body">
             <div class="mitigation-chart-wrap">
               <canvas ref="mitigationCanvasRef"></canvas>
               <div class="mitigation-center">
                 <span class="mitigation-pct">{{ mitigatedPct }}%</span>
-                <span class="mitigation-label">mitigated</span>
+                <span class="mitigation-label">{{ t('adminPerformance.mitigated') }}</span>
               </div>
             </div>
             <div class="mitigation-stats">
@@ -458,22 +459,18 @@ function updateMitigationChart(snap) {
                 <span class="mit-dot normal"></span>
                 <div class="mit-info">
                   <span class="mit-value">{{ normalCount.toLocaleString() }}</span>
-                  <span class="mit-label">Sync (200 OK)</span>
+                  <span class="mit-label">{{ t('adminPerformance.syncOk') }}</span>
                 </div>
               </div>
               <div class="mit-stat">
                 <span class="mit-dot mitigated"></span>
                 <div class="mit-info">
                   <span class="mit-value">{{ mitigatedCount.toLocaleString() }}</span>
-                  <span class="mit-label">Async (202 Accepted)</span>
+                  <span class="mit-label">{{ t('adminPerformance.asyncAccepted') }}</span>
                 </div>
               </div>
               <div class="mit-divider"></div>
-              <p class="mit-desc">
-                When QPS exceeds the threshold, the adaptive dispatcher
-                switches to async mode (HTTP 202), queuing requests for
-                background processing to maintain system stability.
-              </p>
+              <p class="mit-desc">{{ t('adminPerformance.mitigationDesc') }}</p>
             </div>
           </div>
         </div>
@@ -481,21 +478,21 @@ function updateMitigationChart(snap) {
         <!-- Architecture Diagram -->
         <div class="glass-card arch-card">
           <div class="card-header">
-            <h3 class="card-title">Adaptive Architecture</h3>
+            <h3 class="card-title">{{ t('adminPerformance.adaptiveArchitecture') }}</h3>
           </div>
           <div class="arch-flow">
             <div class="arch-step">
-              <div class="arch-node request">HTTP Request</div>
+              <div class="arch-node request">{{ t('adminPerformance.httpRequest') }}</div>
               <div class="arch-arrow">↓</div>
             </div>
             <div class="arch-step">
-              <div class="arch-node middleware">Perf Middleware</div>
-              <div class="arch-desc">Records metrics per endpoint</div>
+              <div class="arch-node middleware">{{ t('adminPerformance.perfMiddleware') }}</div>
+              <div class="arch-desc">{{ t('adminPerformance.recordsMetrics') }}</div>
               <div class="arch-arrow">↓</div>
             </div>
             <div class="arch-step">
-              <div class="arch-node dispatcher">QPS Dispatcher</div>
-              <div class="arch-desc">Checks threshold in real-time</div>
+              <div class="arch-node dispatcher">{{ t('adminPerformance.qpsDispatcher') }}</div>
+              <div class="arch-desc">{{ t('adminPerformance.checksThreshold') }}</div>
               <div class="arch-arrow-split">
                 <div class="arch-branch-line left"></div>
                 <div class="arch-branch-line right"></div>
@@ -503,18 +500,18 @@ function updateMitigationChart(snap) {
             </div>
             <div class="arch-branches">
               <div class="arch-branch normal">
-                <div class="arch-condition">QPS &lt; threshold</div>
-                <div class="arch-node sync-node">Sync → 200</div>
+                <div class="arch-condition">{{ t('adminPerformance.belowThreshold') }}</div>
+                <div class="arch-node sync-node">{{ t('adminPerformance.syncResponse') }}</div>
               </div>
               <div class="arch-branch high">
-                <div class="arch-condition">QPS ≥ threshold</div>
-                <div class="arch-node async-node">Async → 202</div>
+                <div class="arch-condition">{{ t('adminPerformance.aboveThreshold') }}</div>
+                <div class="arch-node async-node">{{ t('adminPerformance.asyncResponse') }}</div>
               </div>
             </div>
             <div class="arch-step">
               <div class="arch-arrow">↓</div>
-              <div class="arch-node ws-node">WebSocket Hub</div>
-              <div class="arch-desc">Broadcasts to dashboard</div>
+              <div class="arch-node ws-node">{{ t('adminPerformance.wsHub') }}</div>
+              <div class="arch-desc">{{ t('adminPerformance.broadcastsToDashboard') }}</div>
             </div>
           </div>
         </div>
@@ -557,7 +554,7 @@ function updateMitigationChart(snap) {
 
 .page-subtitle {
   margin: 0.3rem 0 0;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   font-size: 0.85rem;
 }
 
@@ -567,10 +564,10 @@ function updateMitigationChart(snap) {
   gap: 0.5rem;
   padding: 0.45rem 0.85rem;
   border-radius: 20px;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   font-size: 0.78rem;
-  color: #fca5a5;
+  color: var(--danger);
   transition: all 0.3s;
 }
 
@@ -610,8 +607,8 @@ function updateMitigationChart(snap) {
   gap: 0.6rem;
   padding: 0.7rem 1rem;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   flex: 1;
   min-width: 140px;
   position: relative;
@@ -620,7 +617,7 @@ function updateMitigationChart(snap) {
 
 .stat-pill.total-qps {
   background: rgba(99, 102, 241, 0.08);
-  border-color: rgba(99, 102, 241, 0.2);
+  border-color: var(--accent-border);
 }
 
 .stat-pill.mitigated-pill {
@@ -633,13 +630,13 @@ function updateMitigationChart(snap) {
 .pill-value {
   font-size: 1.3rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .pill-label {
   font-size: 0.68rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -678,23 +675,23 @@ function updateMitigationChart(snap) {
 .interval-btn {
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.5);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
   font-size: 0.72rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .interval-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
 }
 
 .interval-btn.active {
-  background: rgba(99, 102, 241, 0.25);
-  border-color: rgba(99, 102, 241, 0.5);
-  color: #a78bfa;
+  background: var(--accent-bg-hover);
+  border-color: var(--accent-border);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -715,8 +712,8 @@ function updateMitigationChart(snap) {
 
 /* ─── Cards ─── */
 .glass-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 16px;
   backdrop-filter: blur(12px);
 }
@@ -736,14 +733,14 @@ function updateMitigationChart(snap) {
   margin: 0;
   font-size: 0.9rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
 }
 
 .card-badge {
   padding: 0.2rem 0.6rem;
   border-radius: 8px;
-  background: rgba(99, 102, 241, 0.12);
-  color: #a78bfa;
+  background: var(--accent-bg);
+  color: var(--accent);
   font-size: 0.68rem;
   font-weight: 600;
 }
@@ -785,13 +782,13 @@ function updateMitigationChart(snap) {
 .pie-center-value {
   font-size: 1.6rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   line-height: 1;
 }
 
 .pie-center-label {
   font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -807,7 +804,7 @@ function updateMitigationChart(snap) {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 .legend-color {
@@ -826,7 +823,7 @@ function updateMitigationChart(snap) {
 
 .legend-value {
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -844,13 +841,13 @@ function updateMitigationChart(snap) {
   padding: 0.7rem 0.85rem;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
   transition: all 0.2s;
 }
 
 .endpoint-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--bg-card);
+  border-color: var(--text-muted);
 }
 
 .ep-rank {
@@ -862,7 +859,7 @@ function updateMitigationChart(snap) {
   justify-content: center;
   font-size: 0.75rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   flex-shrink: 0;
 }
 
@@ -885,13 +882,13 @@ function updateMitigationChart(snap) {
 }
 
 .ep-method.get { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
-.ep-method.post { background: rgba(99, 102, 241, 0.15); color: #a78bfa; }
-.ep-method.put { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-.ep-method.delete { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+.ep-method.post { background: var(--accent-bg); color: var(--accent); }
+.ep-method.put { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.ep-method.delete { background: var(--danger-bg); color: var(--danger); }
 
 .ep-path {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -902,11 +899,11 @@ function updateMitigationChart(snap) {
   display: flex;
   gap: 0.6rem;
   font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
 }
 
 .ep-mitigated {
-  color: #fbbf24;
+  color: var(--warning);
 }
 
 .ep-qps-wrap {
@@ -920,7 +917,7 @@ function updateMitigationChart(snap) {
 .ep-qps-value {
   font-size: 1.1rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -929,7 +926,7 @@ function updateMitigationChart(snap) {
   width: 80px;
   height: 4px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-input);
   overflow: hidden;
 }
 
@@ -946,13 +943,13 @@ function updateMitigationChart(snap) {
   align-items: center;
   justify-content: center;
   padding: 3rem 1rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   text-align: center;
 }
 
 .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
 .empty-state p { margin: 0.2rem 0; font-size: 0.85rem; }
-.empty-hint { font-size: 0.75rem !important; color: rgba(255, 255, 255, 0.25); }
+.empty-hint { font-size: 0.75rem !important; color: var(--text-muted); }
 
 /* ─── Line Chart ─── */
 .line-chart-card {
@@ -971,9 +968,9 @@ function updateMitigationChart(snap) {
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   font-size: 0.85rem;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-code);
   border-radius: 16px;
   backdrop-filter: blur(4px);
 }
@@ -1011,13 +1008,13 @@ function updateMitigationChart(snap) {
 .mitigation-pct {
   font-size: 1.4rem;
   font-weight: 800;
-  color: #fbbf24;
+  color: var(--warning);
   line-height: 1;
 }
 
 .mitigation-label {
   font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   text-transform: uppercase;
 }
 
@@ -1045,18 +1042,18 @@ function updateMitigationChart(snap) {
 .mit-dot.mitigated { background: #f59e0b; }
 
 .mit-info { display: flex; flex-direction: column; }
-.mit-value { font-size: 1rem; font-weight: 700; color: #fff; }
-.mit-label { font-size: 0.7rem; color: rgba(255, 255, 255, 0.4); }
+.mit-value { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+.mit-label { font-size: 0.7rem; color: var(--text-muted); }
 
 .mit-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-input);
   margin: 0.3rem 0;
 }
 
 .mit-desc {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
   line-height: 1.5;
   margin: 0;
 }
@@ -1081,27 +1078,27 @@ function updateMitigationChart(snap) {
   border-radius: 8px;
   font-size: 0.72rem;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border-default);
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .arch-node.request {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.25);
-  color: #a78bfa;
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 
 .arch-node.middleware {
   background: rgba(245, 158, 11, 0.1);
   border-color: rgba(245, 158, 11, 0.25);
-  color: #fbbf24;
+  color: var(--warning);
 }
 
 .arch-node.dispatcher {
   background: rgba(139, 92, 246, 0.1);
   border-color: rgba(139, 92, 246, 0.25);
-  color: #c4b5fd;
+  color: var(--accent-light);
 }
 
 .arch-node.sync-node {
@@ -1111,25 +1108,25 @@ function updateMitigationChart(snap) {
 }
 
 .arch-node.async-node {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: #fca5a5;
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger);
 }
 
 .arch-node.ws-node {
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--info-bg);
   border-color: rgba(59, 130, 246, 0.25);
   color: #93c5fd;
 }
 
 .arch-arrow {
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--text-muted);
   font-size: 0.85rem;
 }
 
 .arch-desc {
   font-size: 0.62rem;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -1143,7 +1140,7 @@ function updateMitigationChart(snap) {
 .arch-branch-line {
   width: 1px;
   height: 100%;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-card-hover);
 }
 
 .arch-branches {
@@ -1160,7 +1157,7 @@ function updateMitigationChart(snap) {
 
 .arch-condition {
   font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   font-family: 'SF Mono', monospace;
 }
 
@@ -1168,8 +1165,8 @@ function updateMitigationChart(snap) {
 .spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #a78bfa;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

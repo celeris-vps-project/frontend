@@ -2,34 +2,34 @@
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { login, saveToken, saveRole } from '../api/auth'
+import { useI18n } from 'vue-i18n'
+import { translateError } from '../utils/errorHelper'
+import { useToast } from '../composables/useToast'
 
+const { t } = useI18n()
 const router = useRouter()
+const toast = useToast()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
-const error = ref('')
 
 async function onSubmit() {
-  error.value = ''
-
   if (!email.value || !password.value) {
-    error.value = 'Please fill in email and password.'
+    toast.error(t('errors.emailPasswordRequired'))
     return
   }
-
   loading.value = true
   try {
     const result = await login(email.value, password.value)
     saveToken(result.token)
     saveRole(result.role)
-    // Redirect admins to admin panel, users to dashboard
     if (result.role === 'admin') {
       router.push('/admin')
     } else {
       router.push('/dashboard')
     }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Login failed'
+    toast.error(translateError(err))
   } finally {
     loading.value = false
   }
@@ -43,31 +43,28 @@ async function onSubmit() {
       <div class="auth-orb auth-orb-2"></div>
     </div>
     <section class="auth-card glass-card">
-      <div class="auth-brand">&#9670; Celeris</div>
-      <h1>Welcome back</h1>
-      <p>Sign in to your VPS billing panel.</p>
+      <div class="auth-brand">◆ Celeris</div>
+      <h1>{{ t('auth.welcomeBack') }}</h1>
+      <p>{{ t('auth.loginSubtitle') }}</p>
 
       <form @submit.prevent="onSubmit">
         <div class="form-field">
-          <label for="email">Email</label>
+          <label for="email">{{ t('auth.email') }}</label>
           <input id="email" v-model="email" type="email" autocomplete="email" placeholder="you@example.com" />
         </div>
-
         <div class="form-field">
-          <label for="password">Password</label>
+          <label for="password">{{ t('auth.password') }}</label>
           <input id="password" v-model="password" type="password" autocomplete="current-password" placeholder="********" />
         </div>
-
         <button class="action-btn primary-btn" type="submit" :disabled="loading">
-          {{ loading ? 'Signing in...' : 'Sign In' }}
+          {{ loading ? t('auth.loggingIn') : t('auth.loginBtn') }}
         </button>
       </form>
 
-      <p v-if="error" class="error">{{ error }}</p>
-
+      <div class="auth-divider"><span>{{ t('auth.or') }}</span></div>
       <p class="alt-action">
-        Don't have an account?
-        <RouterLink to="/register">Register</RouterLink>
+        {{ t('auth.noAccount') }}
+        <RouterLink to="/register">{{ t('auth.register') }}</RouterLink>
       </p>
     </section>
   </main>

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import {
@@ -15,6 +16,7 @@ import {
   billingCycleLabel
 } from '../api/billing.js'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const invoice = ref(null)
@@ -167,17 +169,17 @@ function closeAllForms() {
     <div class="detail-page">
       <!-- Back -->
       <button class="back-btn" @click="router.push('/invoices')">
-        ← Back to Invoices
+        {{ t('invoiceDetail.backToInvoices') }}
       </button>
 
       <div v-if="loading" class="loading-state glass-card">
         <div class="spinner"></div>
-        <span>Loading invoice...</span>
+        <span>{{ t('invoiceDetail.loadingInvoice') }}</span>
       </div>
 
       <div v-else-if="error" class="error-state glass-card">
         <p>{{ error }}</p>
-        <button class="action-btn secondary-btn" @click="fetchInvoice">Retry</button>
+        <button class="action-btn secondary-btn" @click="fetchInvoice">{{ t('common.retry') }}</button>
       </div>
 
       <template v-else-if="invoice">
@@ -185,13 +187,13 @@ function closeAllForms() {
         <div class="detail-header">
           <div>
             <div class="detail-title-row">
-              <h1 class="page-title">Invoice #{{ invoice.id.slice(0, 8) }}</h1>
+              <h1 class="page-title">{{ t('invoiceDetail.invoiceTitle', { id: invoice.id.slice(0, 8) }) }}</h1>
               <StatusBadge :status="invoice.status" />
             </div>
-            <p class="page-subtitle">Customer: {{ invoice.customer_id }}</p>
+            <p class="page-subtitle">{{ t('invoiceDetail.customer') }}: {{ invoice.customer_id }}</p>
           </div>
           <div class="header-total">
-            <span class="total-label">Total</span>
+            <span class="total-label">{{ t('invoiceDetail.total') }}</span>
             <span class="total-amount">{{ formatMoney(invoice.total, invoice.currency) }}</span>
           </div>
         </div>
@@ -210,19 +212,19 @@ function closeAllForms() {
             <!-- Summary Cards -->
             <div class="summary-row">
               <div class="summary-card glass-card">
-                <span class="summary-label">Subtotal</span>
+              <span class="summary-label">{{ t('invoiceDetail.subtotal') }}</span>
                 <span class="summary-value">{{ formatMoney(invoice.subtotal, invoice.currency) }}</span>
               </div>
               <div class="summary-card glass-card">
-                <span class="summary-label">Tax</span>
+              <span class="summary-label">{{ t('invoiceDetail.tax') }}</span>
                 <span class="summary-value">{{ formatMoney(invoice.tax, invoice.currency) }}</span>
               </div>
               <div class="summary-card glass-card">
-                <span class="summary-label">Paid</span>
+              <span class="summary-label">{{ t('invoiceDetail.paid') }}</span>
                 <span class="summary-value paid-value">{{ formatMoney(invoice.amount_paid, invoice.currency) }}</span>
               </div>
               <div class="summary-card glass-card">
-                <span class="summary-label">Balance</span>
+              <span class="summary-label">{{ t('invoiceDetail.balance') }}</span>
                 <span class="summary-value balance-value">{{ formatMoney(remaining, invoice.currency) }}</span>
               </div>
             </div>
@@ -230,7 +232,7 @@ function closeAllForms() {
             <!-- Payment Progress -->
             <div v-if="invoice.status === 'issued' || invoice.status === 'paid'" class="progress-section glass-card">
               <div class="progress-header">
-                <span class="progress-label">Payment Progress</span>
+                <span class="progress-label">{{ t('invoiceDetail.paymentProgress') }}</span>
                 <span class="progress-pct">{{ paymentProgress.toFixed(0) }}%</span>
               </div>
               <div class="progress-track">
@@ -241,13 +243,13 @@ function closeAllForms() {
             <!-- Line Items -->
             <div class="line-items-section glass-card">
               <div class="section-header">
-                <h2>Line Items</h2>
+                <h2>{{ t('invoiceDetail.lineItems') }}</h2>
                 <button
                   v-if="invoice.status === 'draft'"
                   class="action-btn accent-btn small-btn"
                   @click="showLineItemForm = !showLineItemForm"
                 >
-                  {{ showLineItemForm ? 'Cancel' : '+ Add Item' }}
+                  {{ showLineItemForm ? t('common.cancel') : t('invoiceDetail.addItem') }}
                 </button>
               </div>
 
@@ -255,20 +257,20 @@ function closeAllForms() {
               <form v-if="showLineItemForm" class="inline-form" @submit.prevent="handleAddLineItem">
                 <div class="form-row">
                   <div class="form-group flex-2">
-                    <label>Description</label>
-                    <input v-model="newItem.description" type="text" placeholder="e.g., VPS 4GB RAM — Monthly" required />
+                    <label>{{ t('invoiceDetail.description') }}</label>
+                    <input v-model="newItem.description" type="text" :placeholder="t('invoiceDetail.itemDescPlaceholder')" required />
                   </div>
                   <div class="form-group">
-                    <label>Qty</label>
+                    <label>{{ t('invoiceDetail.qty') }}</label>
                     <input v-model.number="newItem.quantity" type="number" min="1" required />
                   </div>
                   <div class="form-group">
-                    <label>Unit Price ($)</label>
+                    <label>{{ t('invoiceDetail.unitPrice') }} ($)</label>
                     <input v-model.number="newItem.unit_price" type="number" min="0" step="0.01" required />
                   </div>
                 </div>
                 <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
-                  {{ actionLoading ? 'Adding...' : 'Add Line Item' }}
+                  {{ actionLoading ? t('invoiceDetail.adding') : t('invoiceDetail.addLineItem') }}
                 </button>
               </form>
 
@@ -276,10 +278,10 @@ function closeAllForms() {
               <table v-if="invoice.line_items && invoice.line_items.length > 0" class="items-table">
                 <thead>
                   <tr>
-                    <th>Description</th>
-                    <th class="text-right">Qty</th>
-                    <th class="text-right">Unit Price</th>
-                    <th class="text-right">Total</th>
+                    <th>{{ t('invoiceDetail.description') }}</th>
+                    <th class="text-right">{{ t('invoiceDetail.qty') }}</th>
+                    <th class="text-right">{{ t('invoiceDetail.unitPrice') }}</th>
+                    <th class="text-right">{{ t('invoiceDetail.total') }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -292,61 +294,61 @@ function closeAllForms() {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colspan="3" class="text-right">Subtotal</td>
+                    <td colspan="3" class="text-right">{{ t('invoiceDetail.subtotal') }}</td>
                     <td class="text-right fw-600">{{ formatMoney(invoice.subtotal, invoice.currency) }}</td>
                   </tr>
                   <tr>
-                    <td colspan="3" class="text-right">Tax</td>
+                    <td colspan="3" class="text-right">{{ t('invoiceDetail.tax') }}</td>
                     <td class="text-right fw-600">{{ formatMoney(invoice.tax, invoice.currency) }}</td>
                   </tr>
                   <tr class="total-row">
-                    <td colspan="3" class="text-right">Total</td>
+                    <td colspan="3" class="text-right">{{ t('invoiceDetail.total') }}</td>
                     <td class="text-right fw-700">{{ formatMoney(invoice.total, invoice.currency) }}</td>
                   </tr>
                 </tfoot>
               </table>
 
               <div v-else class="empty-items">
-                <p>No line items yet.</p>
+                <p>{{ t('invoiceDetail.noLineItems') }}</p>
               </div>
             </div>
 
             <!-- Dates -->
             <div class="dates-section glass-card">
-              <h2>Timeline</h2>
+              <h2>{{ t('invoiceDetail.timeline') }}</h2>
               <div class="timeline">
                 <div class="timeline-item">
                   <div class="timeline-dot dot-default"></div>
                   <div class="timeline-content">
-                    <span class="tl-label">Created</span>
-                    <span class="tl-value">Draft</span>
+                    <span class="tl-label">{{ t('invoiceDetail.created') }}</span>
+                    <span class="tl-value">{{ t('invoiceDetail.draft') }}</span>
                   </div>
                 </div>
                 <div v-if="invoice.issued_at" class="timeline-item">
                   <div class="timeline-dot dot-issued"></div>
                   <div class="timeline-content">
-                    <span class="tl-label">Issued</span>
+                    <span class="tl-label">{{ t('invoiceDetail.issued') }}</span>
                     <span class="tl-value">{{ formatDate(invoice.issued_at) }}</span>
                   </div>
                 </div>
                 <div v-if="invoice.due_at" class="timeline-item">
                   <div class="timeline-dot dot-due"></div>
                   <div class="timeline-content">
-                    <span class="tl-label">Due</span>
+                    <span class="tl-label">{{ t('invoiceDetail.due') }}</span>
                     <span class="tl-value">{{ formatDate(invoice.due_at) }}</span>
                   </div>
                 </div>
                 <div v-if="invoice.paid_at" class="timeline-item">
                   <div class="timeline-dot dot-paid"></div>
                   <div class="timeline-content">
-                    <span class="tl-label">Paid</span>
+                    <span class="tl-label">{{ t('invoiceDetail.paidAt') }}</span>
                     <span class="tl-value">{{ formatDate(invoice.paid_at) }}</span>
                   </div>
                 </div>
                 <div v-if="invoice.void_reason" class="timeline-item">
                   <div class="timeline-dot dot-void"></div>
                   <div class="timeline-content">
-                    <span class="tl-label">Voided</span>
+                    <span class="tl-label">{{ t('invoiceDetail.voided') }}</span>
                     <span class="tl-value">{{ invoice.void_reason }}</span>
                   </div>
                 </div>
@@ -357,33 +359,33 @@ function closeAllForms() {
           <!-- Right: Actions Sidebar -->
           <div class="detail-sidebar">
             <div class="actions-card glass-card">
-              <h3>Actions</h3>
+              <h3>{{ t('common.actions') }}</h3>
 
               <!-- Draft actions -->
               <template v-if="invoice.status === 'draft'">
-                <button class="action-btn accent-btn" @click="showTaxForm = !showTaxForm">
-                  Set Tax
+              <button class="action-btn accent-btn" @click="showTaxForm = !showTaxForm">
+                  {{ t('invoiceDetail.setTax') }}
                 </button>
                 <form v-if="showTaxForm" class="sidebar-form" @submit.prevent="handleSetTax">
                   <div class="form-group">
-                    <label>Tax Amount ($)</label>
+                    <label>{{ t('invoiceDetail.taxAmount') }}</label>
                     <input v-model.number="taxAmount" type="number" min="0" step="0.01" />
                   </div>
                   <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
-                    {{ actionLoading ? 'Saving...' : 'Save Tax' }}
+                    {{ actionLoading ? t('invoiceDetail.saving') : t('invoiceDetail.saveTax') }}
                   </button>
                 </form>
 
                 <button class="action-btn primary-btn" @click="showIssueForm = !showIssueForm">
-                  Issue Invoice
+                  {{ t('invoiceDetail.issueInvoice') }}
                 </button>
                 <form v-if="showIssueForm" class="sidebar-form" @submit.prevent="handleIssue">
                   <div class="form-group">
-                    <label>Due Date (optional)</label>
+                    <label>{{ t('invoiceDetail.dueDate') }}</label>
                     <input v-model="dueDate" type="date" />
                   </div>
                   <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
-                    {{ actionLoading ? 'Issuing...' : 'Confirm Issue' }}
+                    {{ actionLoading ? t('invoiceDetail.issuing') : t('invoiceDetail.confirmIssue') }}
                   </button>
                 </form>
               </template>
@@ -391,15 +393,15 @@ function closeAllForms() {
               <!-- Issued actions -->
               <template v-if="invoice.status === 'issued'">
                 <button class="action-btn primary-btn" @click="showPaymentForm = !showPaymentForm">
-                  Record Payment
+                  {{ t('invoiceDetail.recordPayment') }}
                 </button>
                 <form v-if="showPaymentForm" class="sidebar-form" @submit.prevent="handlePayment">
                   <div class="form-group">
-                    <label>Amount ($)</label>
+                    <label>{{ t('invoiceDetail.paymentAmount') }}</label>
                     <input v-model.number="paymentAmount" type="number" min="0.01" step="0.01" />
                   </div>
                   <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
-                    {{ actionLoading ? 'Recording...' : 'Record Payment' }}
+                    {{ actionLoading ? t('invoiceDetail.recording') : t('invoiceDetail.recordPayment') }}
                   </button>
                 </form>
               </template>
@@ -407,50 +409,50 @@ function closeAllForms() {
               <!-- Void (draft or issued) -->
               <template v-if="invoice.status === 'draft' || invoice.status === 'issued'">
                 <button class="action-btn danger-btn" @click="showVoidForm = !showVoidForm">
-                  Void Invoice
+                  {{ t('invoiceDetail.voidInvoice') }}
                 </button>
                 <form v-if="showVoidForm" class="sidebar-form" @submit.prevent="handleVoid">
                   <div class="form-group">
-                    <label>Reason</label>
-                    <input v-model="voidReason" type="text" placeholder="e.g., Customer requested cancellation" required />
+                    <label>{{ t('invoiceDetail.voidReason') }}</label>
+                    <input v-model="voidReason" type="text" :placeholder="t('invoiceDetail.voidReasonPlaceholder')" required />
                   </div>
                   <button class="action-btn danger-btn small-btn" type="submit" :disabled="actionLoading">
-                    {{ actionLoading ? 'Voiding...' : 'Confirm Void' }}
+                    {{ actionLoading ? t('invoiceDetail.voiding') : t('invoiceDetail.confirmVoid') }}
                   </button>
                 </form>
               </template>
 
               <!-- Paid / Void — no further actions -->
               <p v-if="invoice.status === 'paid'" class="no-actions">
-                ✓ This invoice is fully paid.
+                {{ t('invoiceDetail.invoiceFullyPaid') }}
               </p>
               <p v-if="invoice.status === 'void'" class="no-actions">
-                This invoice has been voided.
+                {{ t('invoiceDetail.invoiceVoided') }}
               </p>
             </div>
 
             <!-- Info Card -->
             <div class="info-card glass-card">
-              <h3>Details</h3>
+              <h3>{{ t('invoiceDetail.details') }}</h3>
               <dl class="detail-list">
                 <div class="dl-row">
-                  <dt>Invoice ID</dt>
+                  <dt>{{ t('invoiceDetail.invoiceId') }}</dt>
                   <dd class="mono">{{ invoice.id }}</dd>
                 </div>
                 <div class="dl-row">
-                  <dt>Customer</dt>
+                  <dt>{{ t('invoiceDetail.customer') }}</dt>
                   <dd>{{ invoice.customer_id }}</dd>
                 </div>
                 <div class="dl-row">
-                  <dt>Currency</dt>
+                  <dt>{{ t('invoiceDetail.currencyLabel') }}</dt>
                   <dd>{{ invoice.currency.toUpperCase() }}</dd>
                 </div>
                 <div class="dl-row">
-                  <dt>Status</dt>
+                  <dt>{{ t('adminNodeDetail.statusLabel') }}</dt>
                   <dd><StatusBadge :status="invoice.status" /></dd>
                 </div>
                 <div class="dl-row">
-                  <dt>Billing Cycle</dt>
+                  <dt>{{ t('invoiceDetail.billingCycle') }}</dt>
                   <dd>
                     <span class="cycle-badge" :class="'cycle-' + invoice.billing_cycle">
                       {{ billingCycleLabel(invoice.billing_cycle) }}
@@ -458,11 +460,11 @@ function closeAllForms() {
                   </dd>
                 </div>
                 <div v-if="invoice.period_start" class="dl-row">
-                  <dt>Period Start</dt>
+                  <dt>{{ t('invoiceDetail.periodStart') }}</dt>
                   <dd>{{ formatDate(invoice.period_start) }}</dd>
                 </div>
                 <div v-if="invoice.period_end" class="dl-row">
-                  <dt>Period End</dt>
+                  <dt>{{ t('invoiceDetail.periodEnd') }}</dt>
                   <dd>{{ formatDate(invoice.period_end) }}</dd>
                 </div>
               </dl>
@@ -470,12 +472,12 @@ function closeAllForms() {
 
             <!-- Next Billing Card (recurring invoices only) -->
             <div v-if="invoice.next_billing_date" class="next-billing-card glass-card">
-              <h3>Next Billing</h3>
+              <h3>{{ t('invoiceDetail.nextBilling') }}</h3>
               <div class="next-billing-content">
                 <div class="next-billing-icon">⟳</div>
                 <div class="next-billing-info">
                   <span class="next-billing-date">{{ formatDate(invoice.next_billing_date) }}</span>
-                  <span class="next-billing-cycle">{{ billingCycleLabel(invoice.billing_cycle) }} renewal</span>
+                  <span class="next-billing-cycle">{{ billingCycleLabel(invoice.billing_cycle) }} {{ t('invoiceDetail.renewal') }}</span>
                 </div>
               </div>
             </div>
@@ -495,7 +497,7 @@ function closeAllForms() {
 .back-btn {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 0;
@@ -504,7 +506,7 @@ function closeAllForms() {
 }
 
 .back-btn:hover {
-  color: #a78bfa;
+  color: var(--accent);
 }
 
 .detail-header {
@@ -526,7 +528,7 @@ function closeAllForms() {
   margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.7));
+  background: none;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -534,7 +536,7 @@ function closeAllForms() {
 
 .page-subtitle {
   margin: 0.25rem 0 0;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
@@ -546,7 +548,7 @@ function closeAllForms() {
 
 .total-label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -554,7 +556,7 @@ function closeAllForms() {
 .total-amount {
   font-size: 2rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 /* Notification */
@@ -567,13 +569,13 @@ function closeAllForms() {
 }
 
 .notification-error {
-  border-left: 3px solid #f87171;
-  color: #fca5a5;
+  border-left: 3px solid var(--danger);
+  color: var(--danger);
 }
 
 .notification-success {
-  border-left: 3px solid #4ade80;
-  color: #86efac;
+  border-left: 3px solid var(--success);
+  color: var(--success);
 }
 
 /* Grid */
@@ -613,7 +615,7 @@ function closeAllForms() {
 
 .summary-label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -621,11 +623,11 @@ function closeAllForms() {
 .summary-value {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
-.paid-value { color: #4ade80; }
-.balance-value { color: #fbbf24; }
+.paid-value { color: var(--success); }
+.balance-value { color: var(--warning); }
 
 /* Progress */
 .progress-section {
@@ -641,25 +643,25 @@ function closeAllForms() {
 
 .progress-label {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 .progress-pct {
   font-size: 0.85rem;
-  color: #a78bfa;
+  color: var(--accent);
   font-weight: 600;
 }
 
 .progress-track {
   height: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-input);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6366f1, #a78bfa, #c4b5fd);
+  background: var(--accent-gradient);
   border-radius: 999px;
   transition: width 0.6s ease;
 }
@@ -681,12 +683,12 @@ function closeAllForms() {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .inline-form {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   padding: 1rem;
   margin-bottom: 1rem;
@@ -713,28 +715,28 @@ function closeAllForms() {
 
 .form-group label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .form-group input {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 0.55rem 0.75rem;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.875rem;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent-border);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
 .form-group input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
 }
 
 /* Items table */
@@ -748,31 +750,31 @@ function closeAllForms() {
   padding: 0.6rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--divider);
 }
 
 .items-table td {
   padding: 0.75rem;
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--divider);
 }
 
 .items-table tfoot td {
   padding-top: 0.6rem;
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   border-bottom: none;
 }
 
 .items-table tfoot .total-row td {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--divider);
 }
 
 .text-right { text-align: right; }
@@ -782,7 +784,7 @@ function closeAllForms() {
 .empty-items {
   text-align: center;
   padding: 1.5rem 0;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
 }
 
 /* Dates / Timeline */
@@ -794,7 +796,7 @@ function closeAllForms() {
   margin: 0 0 1rem;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .timeline {
@@ -812,7 +814,7 @@ function closeAllForms() {
   top: 6px;
   bottom: 6px;
   width: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-input);
 }
 
 .timeline-item {
@@ -833,11 +835,11 @@ function closeAllForms() {
   transform: translate(0, -50%);
 }
 
-.dot-default { background: rgba(148, 163, 184, 0.5); }
-.dot-issued { background: rgba(59, 130, 246, 0.7); }
-.dot-due { background: rgba(251, 191, 36, 0.7); }
-.dot-paid { background: rgba(34, 197, 94, 0.7); }
-.dot-void { background: rgba(239, 68, 68, 0.7); }
+.dot-default { background: var(--bg-code); }
+.dot-issued { background: var(--info-bg); }
+.dot-due { background: var(--warning-bg); }
+.dot-paid { background: var(--success-bg); }
+.dot-void { background: var(--danger-bg); }
 
 .timeline-content {
   display: flex;
@@ -848,12 +850,12 @@ function closeAllForms() {
 
 .tl-label {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 .tl-value {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -872,7 +874,7 @@ function closeAllForms() {
   margin: 0 0 1rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .actions-card .action-btn {
@@ -880,8 +882,8 @@ function closeAllForms() {
 }
 
 .sidebar-form {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 0.75rem;
   margin-bottom: 0.75rem;
@@ -892,7 +894,7 @@ function closeAllForms() {
 }
 
 .no-actions {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   font-size: 0.875rem;
   margin: 0;
 }
@@ -905,7 +907,7 @@ function closeAllForms() {
   margin: 0 0 1rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .detail-list {
@@ -917,7 +919,7 @@ function closeAllForms() {
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--divider);
 }
 
 .dl-row:last-child {
@@ -926,13 +928,13 @@ function closeAllForms() {
 
 .dl-row dt {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .dl-row dd {
   margin: 0;
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
   text-align: right;
   max-width: 60%;
   word-break: break-all;
@@ -953,21 +955,21 @@ function closeAllForms() {
 }
 
 .cycle-one_time {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
+  background: var(--bg-code);
+  color: var(--text-muted);
   border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .cycle-monthly {
-  background: rgba(99, 102, 241, 0.12);
-  color: #a78bfa;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
 }
 
 .cycle-yearly {
-  background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
 }
 
 /* Next Billing Card */
@@ -979,7 +981,7 @@ function closeAllForms() {
   margin: 0 0 1rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .next-billing-content {
@@ -992,13 +994,13 @@ function closeAllForms() {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
-  color: #4ade80;
+  color: var(--success);
   flex-shrink: 0;
 }
 
@@ -1011,12 +1013,12 @@ function closeAllForms() {
 .next-billing-date {
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .next-billing-cycle {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 /* Loading / Error */
@@ -1027,14 +1029,14 @@ function closeAllForms() {
   align-items: center;
   gap: 0.75rem;
   padding: 3rem 1.5rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #a78bfa;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
