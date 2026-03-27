@@ -29,16 +29,22 @@ export async function getPaymentProviders() {
 }
 
 /**
- * Initiate a USDT payment for an order on a specific network.
+ * Initiate a payment for an order.
  * POST /api/v1/orders/:id/pay
  *
- * @param {string} orderId - the order to pay
- * @param {string} network - blockchain network (arbitrum, solana, trc20, bsc, polygon)
- * @returns {PayResponse} - includes crypto details (wallet, QR, expiry)
+ * Supports two modes:
+ *   1. Crypto (USDT): pass `network` to select a blockchain network
+ *   2. Dynamic provider: pass `providerId` to route to a specific payment provider
+ *
+ * @param {string} orderId    - the order to pay
+ * @param {string} [network]  - blockchain network (arbitrum, solana, trc20, bsc, polygon)
+ * @param {string} [providerId] - payment provider ID for dynamic routing
+ * @returns {PayResponse} - includes payment_url, crypto details, etc.
  */
-export async function initiatePayment(orderId, network) {
+export async function initiatePayment(orderId, network, providerId) {
   const body = {}
   if (network) body.network = network
+  if (providerId) body.provider_id = providerId
   body.currency = 'USDT'
   const res = await request('POST', `/api/v1/orders/${orderId}/pay`, body)
   return res.data

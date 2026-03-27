@@ -96,6 +96,10 @@ async function removeProvider(p) {
 function goToCreate() {
   router.push('/admin/payment-providers/new')
 }
+
+function goToEdit(p) {
+  router.push(`/admin/payment-providers/${p.id}/edit`)
+}
 </script>
 
 <template>
@@ -209,6 +213,9 @@ function goToCreate() {
           </div>
 
           <div class="provider-actions">
+            <button class="action-btn small-btn edit-btn" @click="goToEdit(p)">
+              {{ t('common.edit') }}
+            </button>
             <button
               class="action-btn small-btn"
               :class="p.enabled ? 'warning-btn' : 'success-btn'"
@@ -556,6 +563,17 @@ function goToCreate() {
   background: var(--danger-bg);
   color: var(--danger);
   border: 1px solid var(--danger-border);
+}
+
+.edit-btn {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.edit-btn:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 .glass-card {

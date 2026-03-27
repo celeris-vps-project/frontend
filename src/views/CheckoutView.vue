@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import { getOrder } from '../api/billing.js'
+import { getPaymentProviders, initiatePayment } from '../api/payment.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,17 +18,49 @@ const paymentStatus = ref('idle') // idle | processing | confirmed | failed
 const pollTimer = ref(null)
 const invoiceID = ref('') // linked billing invoice ID
 
-// ── Load order on mount ──
+// ── Payment providers ──
+const providers = ref([])
+const providersLoading = ref(true)
+const selectedProvider = ref(null)
+
+// ── Provider type metadata (icon, color, label) ──
+const providerMeta = {
+  crypto_usdt: { icon: '₮', color: '#26a17b', label: 'Crypto USDT' },
+  stripe:      { icon: '💳', color: '#635bff', label: 'Credit Card' },
+  paypal:      { icon: '🅿', color: '#003087', label: 'PayPal' },
+  alipay:      { icon: '💙', color: '#1677ff', label: 'Alipay' },
+  wechat_pay:  { icon: '💚', color: '#07c160', label: 'WeChat Pay' },
+  custom:      { icon: '🔗', color: '#888888', label: 'Custom' },
+}
+
+function getProviderMeta(type) {
+  return providerMeta[type] || { icon: '💰', color: '#888', label: type }
+}
+
+// ── Load order + providers on mount ──
 onMounted(async () => {
   try {
-    order.value = await getOrder(orderID)
-    if (order.value.status === 'active') {
+    const [orderData, providerData] = await Promise.all([
+      getOrder(orderID),
+      getPaymentProviders().catch(() => [])
+    ])
+
+    order.value = orderData
+    providers.value = providerData
+
+    if (orderData.status === 'active') {
       paymentStatus.value = 'confirmed'
+    }
+
+    // Auto-select first provider if only one is available
+    if (providerData.length === 1) {
+      selectedProvider.value = providerData[0]
     }
   } catch (err) {
     error.value = err.message || 'Failed to load order'
   } finally {
     loading.value = false
+    providersLoading.value = false
   }
 })
 
@@ -66,12 +99,55 @@ function osLabel(os) {
   return osList[os] || os || '—'
 }
 
-// ── Pay button handler — redirects to USDT crypto payment page ──
+// ── Provider selection ──
 
-function handlePay() {
-  if (paying.value || paymentStatus.value === 'confirmed') return
-  // Navigate to the dedicated crypto payment page
-  router.push(`/orders/${orderID}/pay`)
+function selectProvider(provider) {
+  selectedProvider.value = provider
+}
+
+// ── Pay button text ──
+const payButtonText = computed(() => {
+  if (!selectedProvider.value) return 'Select a payment method'
+  const meta = getProviderMeta(selectedProvider.value.type)
+  return `${meta.icon} Pay with ${selectedProvider.value.name} →`
+})
+
+// ── Pay button handler — routes to appropriate payment page ──
+
+async function handlePay() {
+  if (paying.value || paymentStatus.value === 'confirmed' || !selectedProvider.value) return
+
+  const provider = selectedProvider.value
+
+  // For crypto_usdt, navigate to the dedicated crypto payment page (network selection + QR)
+  if (provider.type === 'crypto_usdt') {
+    router.push(`/orders/${orderID}/pay`)
+    return
+  }
+
+  // For all other provider types (custom, stripe, paypal, etc.),
+  // call the Pay API with provider_id and handle the payment_url redirect.
+  paying.value = true
+  payError.value = ''
+
+  try {
+    const result = await initiatePayment(orderID, null, provider.id)
+
+    // If the backend returns an external payment URL, redirect the browser
+    if (result.payment_url && result.payment_url.startsWith('http')) {
+      window.location.href = result.payment_url
+      return
+    }
+
+    // For mock mode or internal URLs, show processing state and poll
+    invoiceID.value = result.invoice_id || ''
+    paymentStatus.value = 'processing'
+    startPolling()
+  } catch (err) {
+    payError.value = err.message || 'Payment initiation failed'
+    paymentStatus.value = 'failed'
+    paying.value = false
+  }
 }
 
 // ── Poll order status until it becomes "active" ──
@@ -207,22 +283,75 @@ function goBack() {
               <span class="pay-label">Currency</span>
               <span class="pay-value">{{ (order.currency || '').toUpperCase() }}</span>
             </div>
-            <div class="pay-row">
-              <span class="pay-label">Payment Method</span>
-              <span class="pay-value method-badge usdt-method">₮ USDT (Multi-Chain)</span>
-            </div>
           </div>
 
           <div class="pay-divider"></div>
 
-          <!-- Payment states -->
+          <!-- ═══ Payment Method Selection ═══ -->
+          <div v-if="paymentStatus === 'idle'" class="provider-section">
+            <div class="provider-section-header">
+              <span class="provider-section-label">Select Payment Method</span>
+            </div>
 
-          <!-- Idle: ready to pay -->
-          <div v-if="paymentStatus === 'idle'" class="pay-action">
-            <p class="pay-info">Click below to complete your payment. Your instance will be provisioned automatically after payment confirmation.</p>
-            <button class="action-btn primary-btn pay-btn usdt-pay-btn" @click="handlePay" :disabled="paying">
-              ₮ Pay with USDT →
-            </button>
+            <!-- Loading providers -->
+            <div v-if="providersLoading" class="providers-loading">
+              <div class="spinner small-spinner"></div>
+              <span>Loading payment methods...</span>
+            </div>
+
+            <!-- No providers available -->
+            <div v-else-if="providers.length === 0" class="no-providers">
+              <span class="no-providers-icon">⚠</span>
+              <p class="no-providers-text">No payment methods available. Please contact support.</p>
+            </div>
+
+            <!-- Provider cards -->
+            <div v-else class="provider-list">
+              <button
+                v-for="provider in providers"
+                :key="provider.id"
+                class="provider-card"
+                :class="{ selected: selectedProvider?.id === provider.id }"
+                :style="{ '--provider-color': getProviderMeta(provider.type).color }"
+                @click="selectProvider(provider)"
+              >
+                <div class="provider-icon">{{ getProviderMeta(provider.type).icon }}</div>
+                <div class="provider-info">
+                  <span class="provider-name">{{ provider.name }}</span>
+                  <span class="provider-type-label">{{ getProviderMeta(provider.type).label }}</span>
+                  <!-- Show supported networks for crypto providers -->
+                  <div v-if="provider.networks && provider.networks.length > 0" class="provider-networks">
+                    <span
+                      v-for="net in provider.networks"
+                      :key="net"
+                      class="network-tag"
+                    >{{ net }}</span>
+                  </div>
+                </div>
+                <div class="provider-check" v-if="selectedProvider?.id === provider.id">✓</div>
+              </button>
+            </div>
+
+            <div class="pay-divider"></div>
+
+            <!-- Pay action -->
+            <div class="pay-action">
+              <p class="pay-info">
+                {{ selectedProvider
+                  ? 'Click below to proceed with your payment. Your instance will be provisioned automatically after payment confirmation.'
+                  : 'Please select a payment method above to continue.'
+                }}
+              </p>
+              <button
+                class="action-btn primary-btn pay-btn"
+                :class="{ 'provider-pay-btn': selectedProvider }"
+                :style="selectedProvider ? { '--btn-color': getProviderMeta(selectedProvider.type).color } : {}"
+                @click="handlePay"
+                :disabled="paying || !selectedProvider"
+              >
+                {{ payButtonText }}
+              </button>
+            </div>
           </div>
 
           <!-- Processing: waiting for webhook -->
@@ -477,34 +606,164 @@ function goBack() {
   background-clip: text;
 }
 
-.method-badge {
-  padding: 0.15rem 0.5rem;
-  border-radius: 6px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  font-size: 0.75rem;
-  color: var(--accent);
-}
-
-.method-badge.usdt-method {
-  background: var(--success-bg);
-  border-color: var(--success-border);
-  color: #26a17b;
-}
-
-.usdt-pay-btn {
-  background: linear-gradient(135deg, #26a17b, #1a8a68) !important;
-  box-shadow: 0 2px 8px rgba(38, 161, 123, 0.3) !important;
-}
-
-.usdt-pay-btn:hover:not(:disabled) {
-  box-shadow: 0 4px 16px rgba(38, 161, 123, 0.45) !important;
-}
-
 .pay-divider {
   height: 1px;
   background: var(--bg-input);
   margin: 1.25rem 0;
+}
+
+/* ─── Provider Selection Section ─── */
+.provider-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.provider-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.provider-section-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.providers-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem 0;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.no-providers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+.no-providers-icon {
+  font-size: 1.5rem;
+  opacity: 0.6;
+}
+
+.no-providers-text {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* ─── Provider Cards ─── */
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.provider-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-default);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+}
+
+.provider-card:hover {
+  background: var(--bg-input);
+  border-color: var(--text-muted);
+}
+
+.provider-card.selected {
+  border-color: var(--provider-color);
+  background: var(--bg-input);
+  box-shadow: 0 0 0 1px var(--provider-color), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.provider-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.provider-card.selected .provider-icon {
+  background: color-mix(in srgb, var(--provider-color) 15%, transparent);
+}
+
+.provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.provider-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.provider-type-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.provider-networks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+}
+
+.network-tag {
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.provider-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--provider-color);
+  color: #fff;
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 /* ─── Pay action (idle) ─── */
@@ -528,6 +787,15 @@ function goBack() {
   font-weight: 700;
   text-align: center;
   border-radius: 10px;
+}
+
+.provider-pay-btn {
+  background: linear-gradient(135deg, var(--btn-color), color-mix(in srgb, var(--btn-color) 80%, #000)) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--btn-color) 30%, transparent) !important;
+}
+
+.provider-pay-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--btn-color) 45%, transparent) !important;
 }
 
 /* ─── Pay status states ─── */
@@ -600,6 +868,12 @@ function goBack() {
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+.small-spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
 }
 
 @keyframes spin {
