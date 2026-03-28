@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -17,8 +17,29 @@ const actionLoading = ref('')
 const actionError = ref('')
 const actionSuccess = ref('')
 const showTerminateConfirm = ref(false)
+let pollTimer = null
 
 onMounted(fetchInstance)
+onUnmounted(stopPolling)
+
+// Auto-poll: when instance is "pending", refresh every 10s until it changes
+const isPending = computed(() => instance.value?.status === 'pending')
+watch(isPending, (pending) => {
+  if (pending) startPolling()
+  else stopPolling()
+})
+
+function startPolling() {
+  if (pollTimer) return
+  pollTimer = setInterval(async () => {
+    try { instance.value = await getInstance(route.params.id) }
+    catch { /* silent */ }
+  }, 10000)
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+}
 
 async function fetchInstance() {
   loading.value = true; error.value = ''
@@ -105,6 +126,17 @@ function specLabel(inst) {
               </div>
             </div>
 
+            <!-- Provisioning Progress Banner -->
+            <div v-if="instance.status === 'pending'" class="provisioning-banner glass-card">
+              <div class="provisioning-icon">
+                <div class="spinner-sm"></div>
+              </div>
+              <div class="provisioning-text">
+                <strong>VM 正在创建中</strong>
+                <p>正在克隆模板、配置网络和启动虚拟机，预计需要 1-5 分钟。页面将自动刷新。</p>
+              </div>
+            </div>
+
             <div class="config-section glass-card">
               <h2>网络</h2>
               <div class="config-grid">
@@ -116,6 +148,31 @@ function specLabel(inst) {
                   <div class="config-icon-wrap info"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
                   <div class="config-detail"><span class="config-label">IPv6</span><span class="config-value mono">{{ instance.ipv6 || '未分配' }}</span></div>
                 </div>
+                <div class="config-item">
+                  <div class="config-icon-wrap" :class="instance.network_mode === 'nat' ? 'nat' : ''">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3-3m0 0l3 3m-3-3v8"/><circle cx="12" cy="12" r="10"/></svg>
+                  </div>
+                  <div class="config-detail">
+                    <span class="config-label">网络模式</span>
+                    <span class="config-value">{{ instance.network_mode === 'nat' ? 'NAT 共享' : '独立 IP' }}</span>
+                  </div>
+                </div>
+                <div v-if="instance.network_mode === 'nat' && instance.nat_port" class="config-item">
+                  <div class="config-icon-wrap nat">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                  </div>
+                  <div class="config-detail">
+                    <span class="config-label">NAT SSH 端口</span>
+                    <span class="config-value mono">:{{ instance.nat_port }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SSH Connection Command (shown when instance is running with IP) -->
+              <div v-if="instance.ipv4 && instance.status === 'running'" class="ssh-command-box">
+                <span class="ssh-label">SSH 连接命令</span>
+                <code v-if="instance.network_mode === 'nat' && instance.nat_port" class="ssh-cmd">ssh root@{{ instance.ipv4 }} -p {{ instance.nat_port }}</code>
+                <code v-else class="ssh-cmd">ssh root@{{ instance.ipv4 }}</code>
               </div>
             </div>
 
@@ -236,6 +293,7 @@ function specLabel(inst) {
 }
 .config-icon-wrap.success { background: var(--success-bg); color: var(--success); border-color: var(--success-border); }
 .config-icon-wrap.info { background: var(--info-bg); color: var(--info); border-color: var(--info-border); }
+.config-icon-wrap.nat { background: rgba(168, 85, 247, 0.08); color: #a855f7; border-color: rgba(168, 85, 247, 0.2); }
 
 .config-detail { display: flex; flex-direction: column; gap: 0.05rem; }
 .config-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -284,6 +342,55 @@ function specLabel(inst) {
 .dl-row:last-child { border-bottom: none; }
 .dl-row dt { font-size: 0.8rem; color: var(--text-muted); }
 .dl-row dd { margin: 0; font-size: 0.82rem; color: var(--text-primary); text-align: right; max-width: 60%; word-break: break-all; }
+
+/* Provisioning banner */
+.provisioning-banner {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1.25rem; margin-bottom: 1.25rem;
+  border-left: 3px solid var(--warning);
+  animation: pulse-banner 2s ease-in-out infinite;
+}
+
+@keyframes pulse-banner {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.provisioning-icon { flex-shrink: 0; }
+
+.spinner-sm {
+  width: 24px; height: 24px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--warning);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.provisioning-text strong {
+  display: block; font-size: 0.95rem; color: var(--warning); margin-bottom: 0.25rem;
+}
+
+.provisioning-text p {
+  margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;
+}
+
+/* SSH command box */
+.ssh-command-box {
+  margin-top: 1rem; padding: 0.85rem 1rem;
+  background: var(--bg-code); border: 1px solid var(--border-subtle);
+  border-radius: 10px; display: flex; flex-direction: column; gap: 0.35rem;
+}
+
+.ssh-label {
+  font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ssh-cmd {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.85rem; color: var(--success); font-weight: 500;
+  user-select: all; cursor: text;
+}
 
 .loading-state, .error-state {
   display: flex; flex-direction: column; align-items: center;

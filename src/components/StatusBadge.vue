@@ -35,6 +35,12 @@ const displayLabel = computed(() => {
   background: var(--warning-bg);
   color: var(--warning);
   border: 1px solid var(--warning-border);
+  animation: pulse-pending 2s ease-in-out infinite;
+}
+
+@keyframes pulse-pending {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .badge-running, .badge-active, .badge-paid {

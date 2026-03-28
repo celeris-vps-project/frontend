@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -14,8 +14,33 @@ const loading = ref(true)
 const error = ref('')
 const filterStatus = ref('all')
 const searchQuery = ref('')
+let pollTimer = null
 
 onMounted(fetchInstances)
+onUnmounted(stopPolling)
+
+// Auto-poll: when any instance is "pending", refresh every 10s
+const hasPending = computed(() => instances.value.some(i => i.status === 'pending'))
+watch(hasPending, (pending) => {
+  if (pending) startPolling()
+  else stopPolling()
+})
+
+function startPolling() {
+  if (pollTimer) return
+  pollTimer = setInterval(async () => {
+    try {
+      instances.value = await listInstances()
+    } catch { /* silent — user already sees the list */ }
+  }, 10000) // 10 seconds
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
 
 async function fetchInstances() {
   loading.value = true
@@ -145,9 +170,13 @@ function goToInstance(id) {
               <span class="spec-tag">{{ specLabel(inst) }}</span>
               <span class="spec-tag">{{ inst.os }}</span>
             </div>
-            <div v-if="inst.ipv4 || inst.ipv6" class="instance-ip">
+            <div v-if="inst.ipv4 || inst.ipv6 || inst.nat_port" class="instance-ip">
               <span v-if="inst.ipv4" class="ip-tag">{{ inst.ipv4 }}</span>
+              <span v-if="inst.nat_port" class="ip-tag nat-tag">NAT :{{ inst.nat_port }}</span>
               <span v-if="inst.ipv6" class="ip-tag ipv6">{{ inst.ipv6 }}</span>
+            </div>
+            <div v-if="inst.status === 'pending'" class="provisioning-hint">
+              <span class="provisioning-dot"></span> VM 正在创建中...
             </div>
           </div>
 
@@ -279,6 +308,27 @@ function goToInstance(id) {
 
 .ip-tag.ipv6 {
   color: var(--info); background: var(--info-bg); border-color: var(--info-border);
+}
+
+.ip-tag.nat-tag {
+  color: #a855f7; background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.provisioning-hint {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; color: var(--warning); margin-top: 0.4rem;
+}
+
+.provisioning-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--warning);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
 }
 
 .instance-card-bottom { display: flex; justify-content: space-between; align-items: center; }
