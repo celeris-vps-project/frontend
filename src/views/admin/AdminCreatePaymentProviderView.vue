@@ -47,6 +47,10 @@ watch(selectedType, (newType) => {
       configValues.value.wallets = {}
       cryptoNetworks.forEach(n => { configValues.value.wallets[n] = '' })
     }
+    // Pre-fill default pay_type for EPay (alipay is the most common channel)
+    if (newType === 'epay') {
+      configValues.value.pay_type = 'alipay'
+    }
   }
 })
 

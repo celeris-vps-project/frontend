@@ -18,6 +18,7 @@ const navItems = [
   { path: '/dashboard', labelKey: 'nav.dashboard', icon: 'dashboard' },
   { path: '/instances', labelKey: 'nav.instances', icon: 'instances' },
   { path: '/invoices', labelKey: 'nav.invoices', icon: 'invoices' },
+  { path: '/profile', labelKey: 'nav.profile', icon: 'profile' },
 ]
 
 function isActive(path) {
@@ -76,6 +77,11 @@ function logout() {
             <polyline points="14 2 14 8 20 8"/>
             <line x1="16" y1="13" x2="8" y2="13"/>
             <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          <!-- Profile icon -->
+          <svg v-else-if="item.icon === 'profile'" class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
           </svg>
           <span class="nav-label">{{ t(item.labelKey) }}</span>
           <span class="active-dot" v-if="isActive(item.path)"></span>

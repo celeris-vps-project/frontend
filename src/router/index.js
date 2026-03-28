@@ -10,6 +10,7 @@ import CryptoPaymentView from '../views/CryptoPaymentView.vue'
 import InvoicesView from '../views/InvoicesView.vue'
 import InvoiceDetailView from '../views/InvoiceDetailView.vue'
 import CreateInvoiceView from '../views/CreateInvoiceView.vue'
+import ProfileView from '../views/ProfileView.vue'
 import AdminDashboardView from '../views/admin/AdminDashboardView.vue'
 import AdminNodesView from '../views/admin/AdminNodesView.vue'
 import AdminNodeDetailView from '../views/admin/AdminNodeDetailView.vue'
@@ -36,6 +37,9 @@ const routes = [
   { path: '/instances/:id', name: 'instance-detail', component: InstanceDetailView, meta: { auth: true } },
   { path: '/orders/:id/checkout', name: 'checkout', component: CheckoutView, meta: { auth: true } },
   { path: '/orders/:id/pay', name: 'crypto-payment', component: CryptoPaymentView, meta: { auth: true } },
+
+  // Profile route
+  { path: '/profile', name: 'profile', component: ProfileView, meta: { auth: true } },
 
   // Invoice routes
   { path: '/invoices', name: 'invoices', component: InvoicesView, meta: { auth: true } },

@@ -75,3 +75,24 @@ export function clearToken() {
   localStorage.removeItem('auth_token')
   localStorage.removeItem('auth_role')
 }
+
+/**
+ * Change the current user's password.
+ * Uses the shared request helper for auth headers, toast, retry, etc.
+ */
+export async function changePassword(oldPassword, newPassword) {
+  // Import dynamically to avoid circular dependency
+  const { request } = await import('./request.js')
+  return request('PUT', '/api/v1/me/password', {
+    old_password: oldPassword,
+    new_password: newPassword,
+  })
+}
+
+/**
+ * Fetch current user profile (GET /api/v1/me).
+ */
+export async function fetchMe() {
+  const { request } = await import('./request.js')
+  return request('GET', '/api/v1/me')
+}

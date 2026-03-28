@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
@@ -15,6 +15,8 @@ import {
   formatDate,
   billingCycleLabel
 } from '../api/billing.js'
+import { isAdmin } from '../api/auth.js'
+import { getPaymentProviders, initiatePayment } from '../api/payment.js'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -46,7 +48,63 @@ const paymentAmount = ref(0)
 const showVoidForm = ref(false)
 const voidReason = ref('')
 
-onMounted(fetchInvoice)
+// ── User payment provider selection ──
+const userIsAdmin = isAdmin()
+const providers = ref([])
+const providersLoading = ref(false)
+const selectedProvider = ref(null)
+const userPayStatus = ref('idle') // idle | processing | confirmed | failed
+const userPayError = ref('')
+const pollTimer = ref(null)
+
+const providerMeta = {
+  crypto_usdt: { icon: '₮', color: '#26a17b', label: 'Crypto USDT' },
+  stripe:      { icon: '💳', color: '#635bff', label: 'Credit Card' },
+  paypal:      { icon: '🅿', color: '#003087', label: 'PayPal' },
+  alipay:      { icon: '💙', color: '#1677ff', label: 'Alipay' },
+  wechat_pay:  { icon: '💚', color: '#07c160', label: 'WeChat Pay' },
+  custom:      { icon: '🔗', color: '#888888', label: 'Custom' },
+}
+
+function getProviderMeta(type) {
+  return providerMeta[type] || { icon: '💰', color: '#888', label: type }
+}
+
+function selectProvider(provider) {
+  selectedProvider.value = provider
+}
+
+const payButtonText = computed(() => {
+  if (!selectedProvider.value) return t('invoiceDetail.selectMethodFirst')
+  return t('invoiceDetail.payWith', { name: selectedProvider.value.name })
+})
+
+// Whether to show user payment section (non-admin + issued status)
+const showUserPayment = computed(() => {
+  return !userIsAdmin && invoice.value && invoice.value.status === 'issued'
+})
+
+onMounted(async () => {
+  await fetchInvoice()
+  // Load payment providers for non-admin users
+  if (!userIsAdmin) {
+    providersLoading.value = true
+    try {
+      providers.value = await getPaymentProviders()
+      if (providers.value.length === 1) {
+        selectedProvider.value = providers.value[0]
+      }
+    } catch {
+      providers.value = []
+    } finally {
+      providersLoading.value = false
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (pollTimer.value) clearInterval(pollTimer.value)
+})
 
 async function fetchInvoice() {
   loading.value = true
@@ -154,6 +212,78 @@ const remaining = computed(() => {
   if (!invoice.value) return 0
   return invoice.value.total - invoice.value.amount_paid
 })
+
+// ── User pay handler ──
+async function handleUserPay() {
+  if (!selectedProvider.value || userPayStatus.value === 'processing') return
+  const provider = selectedProvider.value
+
+  // For crypto_usdt, navigate to the dedicated crypto payment page
+  // We need an order_id linked to this invoice — use invoice.order_id if available
+  if (provider.type === 'crypto_usdt' && invoice.value.order_id) {
+    router.push(`/orders/${invoice.value.order_id}/pay`)
+    return
+  }
+
+  // For all other provider types, call the Pay API with provider_id
+  if (!invoice.value.order_id) {
+    // If no order linked, record payment directly via the invoice API
+    userPayError.value = ''
+    userPayStatus.value = 'processing'
+    try {
+      invoice.value = await recordPayment(route.params.id, invoice.value.total - invoice.value.amount_paid)
+      userPayStatus.value = 'confirmed'
+    } catch (err) {
+      userPayError.value = err.message || 'Payment failed'
+      userPayStatus.value = 'failed'
+    }
+    return
+  }
+
+  userPayError.value = ''
+  userPayStatus.value = 'processing'
+  try {
+    const result = await initiatePayment(invoice.value.order_id, null, provider.id)
+    if (result.payment_url && result.payment_url.startsWith('http')) {
+      window.location.href = result.payment_url
+      return
+    }
+    // Poll for payment confirmation
+    startInvoicePolling()
+  } catch (err) {
+    userPayError.value = err.message || 'Payment initiation failed'
+    userPayStatus.value = 'failed'
+  }
+}
+
+function startInvoicePolling() {
+  let attempts = 0
+  const maxAttempts = 30
+  pollTimer.value = setInterval(async () => {
+    attempts++
+    try {
+      const updated = await getInvoice(route.params.id)
+      invoice.value = updated
+      if (updated.status === 'paid') {
+        clearInterval(pollTimer.value)
+        pollTimer.value = null
+        userPayStatus.value = 'confirmed'
+      } else if (attempts >= maxAttempts) {
+        clearInterval(pollTimer.value)
+        pollTimer.value = null
+        userPayStatus.value = 'failed'
+        userPayError.value = 'Payment confirmation timed out.'
+      }
+    } catch {
+      // Keep polling on transient errors
+    }
+  }, 1000)
+}
+
+function resetUserPay() {
+  userPayStatus.value = 'idle'
+  userPayError.value = ''
+}
 
 function closeAllForms() {
   showLineItemForm.value = false
@@ -361,65 +491,147 @@ function closeAllForms() {
             <div class="actions-card glass-card">
               <h3>{{ t('common.actions') }}</h3>
 
-              <!-- Draft actions -->
-              <template v-if="invoice.status === 'draft'">
-              <button class="action-btn accent-btn" @click="showTaxForm = !showTaxForm">
-                  {{ t('invoiceDetail.setTax') }}
-                </button>
-                <form v-if="showTaxForm" class="sidebar-form" @submit.prevent="handleSetTax">
-                  <div class="form-group">
-                    <label>{{ t('invoiceDetail.taxAmount') }}</label>
-                    <input v-model.number="taxAmount" type="number" min="0" step="0.01" />
-                  </div>
-                  <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
-                    {{ actionLoading ? t('invoiceDetail.saving') : t('invoiceDetail.saveTax') }}
+              <!-- ═══ Admin actions ═══ -->
+              <template v-if="userIsAdmin">
+                <!-- Draft actions -->
+                <template v-if="invoice.status === 'draft'">
+                  <button class="action-btn accent-btn" @click="showTaxForm = !showTaxForm">
+                    {{ t('invoiceDetail.setTax') }}
                   </button>
-                </form>
+                  <form v-if="showTaxForm" class="sidebar-form" @submit.prevent="handleSetTax">
+                    <div class="form-group">
+                      <label>{{ t('invoiceDetail.taxAmount') }}</label>
+                      <input v-model.number="taxAmount" type="number" min="0" step="0.01" />
+                    </div>
+                    <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
+                      {{ actionLoading ? t('invoiceDetail.saving') : t('invoiceDetail.saveTax') }}
+                    </button>
+                  </form>
 
-                <button class="action-btn primary-btn" @click="showIssueForm = !showIssueForm">
-                  {{ t('invoiceDetail.issueInvoice') }}
-                </button>
-                <form v-if="showIssueForm" class="sidebar-form" @submit.prevent="handleIssue">
-                  <div class="form-group">
-                    <label>{{ t('invoiceDetail.dueDate') }}</label>
-                    <input v-model="dueDate" type="date" />
-                  </div>
-                  <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
-                    {{ actionLoading ? t('invoiceDetail.issuing') : t('invoiceDetail.confirmIssue') }}
+                  <button class="action-btn primary-btn" @click="showIssueForm = !showIssueForm">
+                    {{ t('invoiceDetail.issueInvoice') }}
                   </button>
-                </form>
+                  <form v-if="showIssueForm" class="sidebar-form" @submit.prevent="handleIssue">
+                    <div class="form-group">
+                      <label>{{ t('invoiceDetail.dueDate') }}</label>
+                      <input v-model="dueDate" type="date" />
+                    </div>
+                    <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
+                      {{ actionLoading ? t('invoiceDetail.issuing') : t('invoiceDetail.confirmIssue') }}
+                    </button>
+                  </form>
+                </template>
+
+                <!-- Issued actions (admin: record payment) -->
+                <template v-if="invoice.status === 'issued'">
+                  <button class="action-btn primary-btn" @click="showPaymentForm = !showPaymentForm">
+                    {{ t('invoiceDetail.recordPayment') }}
+                  </button>
+                  <form v-if="showPaymentForm" class="sidebar-form" @submit.prevent="handlePayment">
+                    <div class="form-group">
+                      <label>{{ t('invoiceDetail.paymentAmount') }}</label>
+                      <input v-model.number="paymentAmount" type="number" min="0.01" step="0.01" />
+                    </div>
+                    <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
+                      {{ actionLoading ? t('invoiceDetail.recording') : t('invoiceDetail.recordPayment') }}
+                    </button>
+                  </form>
+                </template>
+
+                <!-- Void (draft or issued) -->
+                <template v-if="invoice.status === 'draft' || invoice.status === 'issued'">
+                  <button class="action-btn danger-btn" @click="showVoidForm = !showVoidForm">
+                    {{ t('invoiceDetail.voidInvoice') }}
+                  </button>
+                  <form v-if="showVoidForm" class="sidebar-form" @submit.prevent="handleVoid">
+                    <div class="form-group">
+                      <label>{{ t('invoiceDetail.voidReason') }}</label>
+                      <input v-model="voidReason" type="text" :placeholder="t('invoiceDetail.voidReasonPlaceholder')" required />
+                    </div>
+                    <button class="action-btn danger-btn small-btn" type="submit" :disabled="actionLoading">
+                      {{ actionLoading ? t('invoiceDetail.voiding') : t('invoiceDetail.confirmVoid') }}
+                    </button>
+                  </form>
+                </template>
               </template>
 
-              <!-- Issued actions -->
-              <template v-if="invoice.status === 'issued'">
-                <button class="action-btn primary-btn" @click="showPaymentForm = !showPaymentForm">
-                  {{ t('invoiceDetail.recordPayment') }}
-                </button>
-                <form v-if="showPaymentForm" class="sidebar-form" @submit.prevent="handlePayment">
-                  <div class="form-group">
-                    <label>{{ t('invoiceDetail.paymentAmount') }}</label>
-                    <input v-model.number="paymentAmount" type="number" min="0.01" step="0.01" />
-                  </div>
-                  <button class="action-btn primary-btn small-btn" type="submit" :disabled="actionLoading">
-                    {{ actionLoading ? t('invoiceDetail.recording') : t('invoiceDetail.recordPayment') }}
-                  </button>
-                </form>
-              </template>
+              <!-- ═══ User payment: show payment methods when issued ═══ -->
+              <template v-if="showUserPayment">
+                <!-- Idle: show provider selection -->
+                <div v-if="userPayStatus === 'idle'" class="user-pay-section">
+                  <div class="provider-section-label">{{ t('invoiceDetail.selectPaymentMethod') }}</div>
 
-              <!-- Void (draft or issued) -->
-              <template v-if="invoice.status === 'draft' || invoice.status === 'issued'">
-                <button class="action-btn danger-btn" @click="showVoidForm = !showVoidForm">
-                  {{ t('invoiceDetail.voidInvoice') }}
-                </button>
-                <form v-if="showVoidForm" class="sidebar-form" @submit.prevent="handleVoid">
-                  <div class="form-group">
-                    <label>{{ t('invoiceDetail.voidReason') }}</label>
-                    <input v-model="voidReason" type="text" :placeholder="t('invoiceDetail.voidReasonPlaceholder')" required />
+                  <!-- Loading providers -->
+                  <div v-if="providersLoading" class="providers-loading">
+                    <div class="spinner small-spinner"></div>
+                    <span>{{ t('invoiceDetail.loadingProviders') }}</span>
                   </div>
-                  <button class="action-btn danger-btn small-btn" type="submit" :disabled="actionLoading">
-                    {{ actionLoading ? t('invoiceDetail.voiding') : t('invoiceDetail.confirmVoid') }}
-                  </button>
-                </form>
+
+                  <!-- No providers -->
+                  <div v-else-if="providers.length === 0" class="no-providers">
+                    <span class="no-providers-icon">⚠</span>
+                    <p class="no-providers-text">{{ t('invoiceDetail.noPaymentMethods') }}</p>
+                  </div>
+
+                  <!-- Provider cards -->
+                  <div v-else class="provider-list">
+                    <button
+                      v-for="provider in providers"
+                      :key="provider.id"
+                      class="provider-card"
+                      :class="{ selected: selectedProvider?.id === provider.id }"
+                      :style="{ '--provider-color': getProviderMeta(provider.type).color }"
+                      @click="selectProvider(provider)"
+                    >
+                      <div class="provider-icon">{{ getProviderMeta(provider.type).icon }}</div>
+                      <div class="provider-info">
+                        <span class="provider-name">{{ provider.name }}</span>
+                        <span class="provider-type-label">{{ getProviderMeta(provider.type).label }}</span>
+                        <div v-if="provider.networks && provider.networks.length > 0" class="provider-networks">
+                          <span v-for="net in provider.networks" :key="net" class="network-tag">{{ net }}</span>
+                        </div>
+                      </div>
+                      <div class="provider-check" v-if="selectedProvider?.id === provider.id">✓</div>
+                    </button>
+                  </div>
+
+                  <!-- Pay action -->
+                  <div v-if="providers.length > 0" class="pay-action">
+                    <div class="pay-divider"></div>
+                    <p class="pay-info-text">{{ t('invoiceDetail.payInfo') }}</p>
+                    <button
+                      class="action-btn primary-btn pay-btn"
+                      :class="{ 'provider-pay-btn': selectedProvider }"
+                      :style="selectedProvider ? { '--btn-color': getProviderMeta(selectedProvider.type).color } : {}"
+                      @click="handleUserPay"
+                      :disabled="!selectedProvider"
+                    >
+                      {{ payButtonText }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Processing -->
+                <div v-else-if="userPayStatus === 'processing'" class="user-pay-status processing">
+                  <div class="spinner"></div>
+                  <p class="status-title">{{ t('invoiceDetail.processingPayment') }}</p>
+                  <p class="status-desc">{{ t('invoiceDetail.processingDesc') }}</p>
+                </div>
+
+                <!-- Confirmed -->
+                <div v-else-if="userPayStatus === 'confirmed'" class="user-pay-status confirmed">
+                  <div class="success-icon">✓</div>
+                  <p class="status-title">{{ t('invoiceDetail.paymentConfirmed') }}</p>
+                  <p class="status-desc">{{ t('invoiceDetail.confirmedDesc') }}</p>
+                </div>
+
+                <!-- Failed -->
+                <div v-else-if="userPayStatus === 'failed'" class="user-pay-status failed">
+                  <div class="fail-icon">✕</div>
+                  <p class="status-title">{{ t('invoiceDetail.paymentFailed') }}</p>
+                  <p class="status-desc error-text">{{ userPayError }}</p>
+                  <button class="action-btn secondary-btn" @click="resetUserPay">{{ t('invoiceDetail.tryAgain') }}</button>
+                </div>
               </template>
 
               <!-- Paid / Void — no further actions -->
@@ -1043,5 +1255,254 @@ function closeAllForms() {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ─── User Payment Provider Section ─── */
+.user-pay-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.provider-section-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.providers-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 0;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.small-spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+}
+
+.no-providers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+.no-providers-icon {
+  font-size: 1.5rem;
+  opacity: 0.6;
+}
+
+.no-providers-text {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* ─── Provider Cards ─── */
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.provider-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-default);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+}
+
+.provider-card:hover {
+  background: var(--bg-input);
+  border-color: var(--text-muted);
+}
+
+.provider-card.selected {
+  border-color: var(--provider-color);
+  background: var(--bg-input);
+  box-shadow: 0 0 0 1px var(--provider-color), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.provider-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.provider-card.selected .provider-icon {
+  background: color-mix(in srgb, var(--provider-color) 15%, transparent);
+}
+
+.provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.provider-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.provider-type-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.provider-networks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+
+.network-tag {
+  padding: 0.08rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 500;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.provider-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--provider-color);
+  color: #fff;
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ─── Pay Action ─── */
+.pay-action {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pay-divider {
+  height: 1px;
+  background: var(--bg-input);
+  margin: 0.25rem 0;
+}
+
+.pay-info-text {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.pay-btn {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 10px;
+}
+
+.provider-pay-btn {
+  background: linear-gradient(135deg, var(--btn-color), color-mix(in srgb, var(--btn-color) 80%, #000)) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--btn-color) 30%, transparent) !important;
+}
+
+.provider-pay-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--btn-color) 45%, transparent) !important;
+}
+
+/* ─── User Pay Status ─── */
+.user-pay-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.status-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.status-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.error-text {
+  color: var(--danger);
+}
+
+.success-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--success-bg);
+  border: 2px solid var(--success-border);
+  color: var(--success);
+  font-size: 1.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fail-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--danger-bg);
+  border: 2px solid var(--danger-border);
+  color: var(--danger);
+  font-size: 1.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
