@@ -21,7 +21,7 @@ import { fetchWsTicket } from './admin'
 /** Derive the WS base URL from the HTTP base URL (supports both http and https). */
 function wsBaseUrl() {
   const httpBase =
-    import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
+    import.meta.env.VITE_API_BASE_URL || ''
   return httpBase.replace(/^http/, 'ws')
 }
 

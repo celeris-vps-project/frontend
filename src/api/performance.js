@@ -10,7 +10,7 @@ import { request, API_BASE_URL, authHeaders } from './request'
 
 /** Derive WS base URL from HTTP base URL. */
 function wsBaseUrl() {
-  const httpBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
+  const httpBase = import.meta.env.VITE_API_BASE_URL || ''
   return httpBase.replace(/^http/, 'ws')
 }
 
