@@ -502,6 +502,8 @@ export default {
 
   // ─── Admin Products ───
   adminProducts: {
+    networkDedicated: '独立 IP',
+    networkNat: 'NAT 共享 IP',
     title: '产品管理',
     subtitle: '管理提供给客户的 VPS 套餐',
     newProduct: '✦ 新产品',
@@ -518,6 +520,12 @@ export default {
 
   // ─── Admin Create Product ───
   adminCreateProduct: {
+    networkSection: '网络 / IP',
+    networkSectionDesc: '选择此套餐是使用独立公网 IP 还是共享 NAT 入口',
+    networkDedicatedTitle: '独立公网 IP',
+    networkDedicatedDesc: '每个实例都会分配独立的公网 IP 资源。',
+    networkNatTitle: 'NAT 共享 IP',
+    networkNatDesc: '实例共享宿主机 IP，对外访问通过 NAT 端口映射。',
     backToProducts: '← 返回产品列表',
     title: '新建产品',
     subtitle: '为新的 VPS 套餐配置实例规格和定价',

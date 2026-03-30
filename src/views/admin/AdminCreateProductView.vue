@@ -19,6 +19,7 @@ const form = ref({
   name: '',
   slug: '',
   resource_pool_id: '',
+  network_mode: 'dedicated',
   cpu: 1,
   memory_mb: 1024,
   disk_gb: 25,
@@ -81,6 +82,11 @@ const memoryOptions = [
   { value: 65536, label: '64 GB' }
 ]
 
+const networkModeOptions = [
+  { value: 'dedicated', badge: 'DEDICATED' },
+  { value: 'nat', badge: 'NAT' }
+]
+
 const priceInCents = computed(() => {
   const val = parseFloat(form.value.price_amount)
   if (isNaN(val) || val <= 0) return 0
@@ -112,6 +118,7 @@ async function handleSubmit() {
       location: region ? region.name : '',
       region_id: pool ? pool.region_id : '',
       resource_pool_id: form.value.resource_pool_id,
+      network_mode: form.value.network_mode,
       cpu: Number(form.value.cpu),
       memory_mb: Number(form.value.memory_mb),
       disk_gb: Number(form.value.disk_gb),
@@ -212,7 +219,38 @@ async function handleSubmit() {
             <div class="spec-pill"><strong>{{ form.cpu }}</strong> vCPU</div>
             <div class="spec-pill"><strong>{{ form.memory_mb >= 1024 ? (form.memory_mb / 1024) + ' GB' : form.memory_mb + ' MB' }}</strong> RAM</div>
             <div class="spec-pill"><strong>{{ form.disk_gb }} GB</strong> Disk</div>
+            <div class="spec-pill network-pill">
+              <strong>{{ form.network_mode === 'nat' ? 'NAT' : 'Dedicated' }}</strong>
+              {{ form.network_mode === 'nat' ? 'Shared IP' : 'Public IP' }}
+            </div>
             <div class="spec-pill"><strong>{{ form.bandwidth_gb || '∞' }}</strong> {{ form.bandwidth_gb ? 'GB BW' : 'Bandwidth' }}</div>
+          </div>
+        </section>
+
+        <section class="form-section glass-card">
+          <h2 class="section-title">{{ t('adminCreateProduct.networkSection') }}</h2>
+          <p class="section-desc">{{ t('adminCreateProduct.networkSectionDesc') }}</p>
+
+          <div class="network-mode-grid">
+            <button
+              v-for="option in networkModeOptions"
+              :key="option.value"
+              type="button"
+              class="network-mode-card"
+              :class="{ active: form.network_mode === option.value, nat: option.value === 'nat' }"
+              @click="form.network_mode = option.value"
+            >
+              <div class="network-mode-card-top">
+                <span class="network-mode-badge">{{ option.badge }}</span>
+                <span class="network-mode-check">{{ form.network_mode === option.value ? '●' : '○' }}</span>
+              </div>
+              <strong class="network-mode-title">
+                {{ option.value === 'nat' ? t('adminCreateProduct.networkNatTitle') : t('adminCreateProduct.networkDedicatedTitle') }}
+              </strong>
+              <p class="network-mode-desc">
+                {{ option.value === 'nat' ? t('adminCreateProduct.networkNatDesc') : t('adminCreateProduct.networkDedicatedDesc') }}
+              </p>
+            </button>
           </div>
         </section>
 
@@ -523,6 +561,92 @@ async function handleSubmit() {
   color: var(--accent);
 }
 
+.network-pill {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.24);
+}
+
+.network-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.network-mode-card {
+  text-align: left;
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgba(248, 113, 113, 0.05), rgba(15, 23, 42, 0.08)),
+    var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.network-mode-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.network-mode-card.active {
+  border-color: rgba(248, 113, 113, 0.55);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
+}
+
+.network-mode-card.nat {
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.06), rgba(15, 23, 42, 0.08)),
+    var(--bg-card);
+}
+
+.network-mode-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.network-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.14);
+}
+
+.network-mode-card.nat .network-mode-badge {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.14);
+}
+
+.network-mode-check {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.network-mode-card.active .network-mode-check {
+  color: #f87171;
+}
+
+.network-mode-title {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+
+.network-mode-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 /* Price input */
 .price-input-row {
   display: flex;
@@ -589,5 +713,11 @@ async function handleSubmit() {
   justify-content: flex-end;
   margin-top: 0.5rem;
   margin-bottom: 2rem;
+}
+
+@media (max-width: 720px) {
+  .network-mode-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

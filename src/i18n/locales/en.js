@@ -513,6 +513,8 @@ export default {
     onSale: 'On Sale',
     disabled: 'Disabled',
     slots: 'slots',
+    networkDedicated: 'Dedicated IP',
+    networkNat: 'NAT Shared IP',
     unlimited: '∞ unlimited',
   },
 
@@ -545,6 +547,12 @@ export default {
     diskHint: 'NVMe storage',
     bandwidthLabel: 'Bandwidth (GB)',
     bandwidthHint: '0 = unlimited',
+    networkSection: 'Network / IP',
+    networkSectionDesc: 'Choose whether instances use a dedicated public IP or a shared NAT entry point',
+    networkDedicatedTitle: 'Dedicated Public IP',
+    networkDedicatedDesc: 'Each instance gets its own dedicated public IP allocation.',
+    networkNatTitle: 'NAT Shared IP',
+    networkNatDesc: 'Instances share the host IP and are exposed through NAT port mapping.',
     // Inventory
     inventory: 'Inventory',
     inventoryDesc: 'Set how many instances of this plan can be sold',

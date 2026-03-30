@@ -40,7 +40,8 @@ const filteredProducts = computed(() => {
     results = results.filter(p =>
       p.name.toLowerCase().includes(q) ||
       p.slug.toLowerCase().includes(q) ||
-      (p.location && p.location.toLowerCase().includes(q))
+      (p.location && p.location.toLowerCase().includes(q)) ||
+      formatNetworkMode(p.network_mode).toLowerCase().includes(q)
     )
   }
   return results
@@ -69,6 +70,10 @@ function formatPrice(amount, currency) {
 function formatCycle(cycle) {
   const map = { monthly: '/mo', quarterly: '/qtr', annually: '/yr' }
   return map[cycle] || `/${cycle}`
+}
+
+function formatNetworkMode(mode) {
+  return mode === 'nat' ? t('adminProducts.networkNat') : t('adminProducts.networkDedicated')
 }
 
 async function toggleEnabled(product) {
@@ -161,6 +166,11 @@ function goToProduct(id) {
             <div class="product-name-col">
               <span class="product-name">{{ product.name }}</span>
               <span class="product-slug">{{ product.slug }}</span>
+              <div class="product-meta-row">
+                <span class="network-badge" :class="product.network_mode === 'nat' ? 'nat' : 'dedicated'">
+                  {{ formatNetworkMode(product.network_mode) }}
+                </span>
+              </div>
               <span v-if="product.location" class="product-location">📍 {{ product.location }}</span>
             </div>
             <div class="product-status-col">
@@ -381,6 +391,36 @@ function goToProduct(id) {
   font-size: 0.72rem;
   color: var(--text-muted);
   margin-top: 0.1rem;
+}
+
+.product-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.network-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+}
+
+.network-badge.dedicated {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.22);
+}
+
+.network-badge.nat {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.22);
 }
 
 .product-status-col {

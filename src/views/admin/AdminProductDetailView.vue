@@ -7,6 +7,7 @@ import {
   enableProduct,
   disableProduct,
   updateProductPrice,
+  updateProductNetworkMode,
   adjustProductStock
 } from '../../api/admin'
 
@@ -24,6 +25,13 @@ const priceForm = ref({ amount: '', currency: '' })
 const priceLoading = ref(false)
 const priceError = ref('')
 const priceSuccess = ref('')
+
+// Network mode edit
+const editingNetworkMode = ref(false)
+const networkModeForm = ref({ mode: 'dedicated' })
+const networkModeLoading = ref(false)
+const networkModeError = ref('')
+const networkModeSuccess = ref('')
 
 // Stock edit
 const editingStock = ref(false)
@@ -94,6 +102,29 @@ async function savePrice() {
   }
 }
 
+function startEditNetworkMode() {
+  networkModeForm.value.mode = product.value.network_mode || 'dedicated'
+  networkModeError.value = ''
+  networkModeSuccess.value = ''
+  editingNetworkMode.value = true
+}
+
+async function saveNetworkMode() {
+  networkModeError.value = ''
+  networkModeSuccess.value = ''
+  networkModeLoading.value = true
+  try {
+    const updated = await updateProductNetworkMode(product.value.id, networkModeForm.value.mode)
+    product.value.network_mode = updated.network_mode
+    networkModeSuccess.value = 'Network mode updated'
+    editingNetworkMode.value = false
+  } catch (err) {
+    networkModeError.value = err.message
+  } finally {
+    networkModeLoading.value = false
+  }
+}
+
 function startEditStock() {
   stockForm.value.unlimited = product.value.is_unlimited
   stockForm.value.totalSlots = product.value.is_unlimited ? 10 : product.value.total_slots
@@ -139,6 +170,16 @@ function formatCycleShort(cycle) {
 
 function formatMemory(mb) {
   return mb >= 1024 ? `${mb / 1024} GB` : `${mb} MB`
+}
+
+function formatNetworkMode(mode) {
+  return mode === 'nat' ? 'NAT Shared IP' : 'Dedicated Public IP'
+}
+
+function formatNetworkModeDesc(mode) {
+  return mode === 'nat'
+    ? 'Instances share the host public IP and access is exposed through NAT port mapping.'
+    : 'Each instance is provisioned with its own dedicated public IP allocation.'
 }
 </script>
 
@@ -205,6 +246,14 @@ function formatMemory(mb) {
               <template v-else>{{ product.available_slots }} <small>/ {{ product.total_slots }}</small></template>
             </span>
           </div>
+          <div class="info-card glass-card">
+            <span class="info-label">Network</span>
+            <span class="info-value">
+              <span class="network-mode-inline" :class="product.network_mode === 'nat' ? 'nat' : 'dedicated'">
+                {{ formatNetworkMode(product.network_mode) }}
+              </span>
+            </span>
+          </div>
         </div>
 
         <!-- Specs Section -->
@@ -245,6 +294,73 @@ function formatMemory(mb) {
               </div>
             </div>
           </div>
+        </section>
+
+        <section class="network-section glass-card">
+          <div class="section-header">
+            <div>
+              <h2>Network / IP</h2>
+              <p class="section-desc">Configure whether this product uses a dedicated public IP or shared NAT access</p>
+            </div>
+            <button v-if="!editingNetworkMode" class="action-btn accent-btn small-btn" @click="startEditNetworkMode">
+              Edit Network
+            </button>
+            <button v-else class="action-btn secondary-btn small-btn" @click="editingNetworkMode = false">
+              Cancel
+            </button>
+          </div>
+
+          <div v-if="!editingNetworkMode" class="network-display">
+            <div class="network-mode-banner" :class="product.network_mode === 'nat' ? 'nat' : 'dedicated'">
+              <span class="network-mode-eyebrow">Current Mode</span>
+              <strong>{{ formatNetworkMode(product.network_mode) }}</strong>
+              <p>{{ formatNetworkModeDesc(product.network_mode) }}</p>
+            </div>
+          </div>
+
+          <div v-else class="network-edit-form">
+            <div class="network-mode-grid">
+              <button
+                type="button"
+                class="network-mode-card"
+                :class="{ active: networkModeForm.mode === 'dedicated' }"
+                @click="networkModeForm.mode = 'dedicated'"
+              >
+                <div class="network-mode-card-top">
+                  <span class="network-mode-pill dedicated">DEDICATED</span>
+                  <span class="network-mode-check">{{ networkModeForm.mode === 'dedicated' ? '●' : '○' }}</span>
+                </div>
+                <strong>Dedicated Public IP</strong>
+                <p>Each instance gets its own dedicated public IP allocation.</p>
+              </button>
+
+              <button
+                type="button"
+                class="network-mode-card nat"
+                :class="{ active: networkModeForm.mode === 'nat' }"
+                @click="networkModeForm.mode = 'nat'"
+              >
+                <div class="network-mode-card-top">
+                  <span class="network-mode-pill nat">NAT</span>
+                  <span class="network-mode-check">{{ networkModeForm.mode === 'nat' ? '●' : '○' }}</span>
+                </div>
+                <strong>NAT Shared IP</strong>
+                <p>Instances share the host IP and use port mapping for external access.</p>
+              </button>
+            </div>
+
+            <div class="network-edit-actions">
+              <button
+                class="action-btn primary-btn"
+                :disabled="networkModeLoading"
+                @click="saveNetworkMode"
+              >
+                {{ networkModeLoading ? 'Saving...' : 'Save Network' }}
+              </button>
+            </div>
+            <p v-if="networkModeError" class="form-error">{{ networkModeError }}</p>
+          </div>
+          <p v-if="networkModeSuccess" class="form-success">{{ networkModeSuccess }}</p>
         </section>
 
         <!-- Update Price Section -->
@@ -507,7 +623,7 @@ function formatMemory(mb) {
 /* Info grid */
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
   margin-bottom: 1.25rem;
 }
@@ -548,6 +664,28 @@ function formatMemory(mb) {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   font-size: 1.1rem;
+}
+
+.network-mode-inline {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.network-mode-inline.dedicated {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.22);
+}
+
+.network-mode-inline.nat {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.22);
 }
 
 /* Specs Section */
@@ -618,6 +756,148 @@ function formatMemory(mb) {
   font-size: 1rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.9);
+}
+
+.network-section {
+  padding: 1.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.network-section h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.network-mode-banner {
+  border-radius: 16px;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  background:
+    linear-gradient(135deg, rgba(248, 113, 113, 0.12), rgba(15, 23, 42, 0.08)),
+    var(--bg-card);
+}
+
+.network-mode-banner.nat {
+  border-color: rgba(251, 191, 36, 0.22);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(15, 23, 42, 0.08)),
+    var(--bg-card);
+}
+
+.network-mode-eyebrow {
+  display: inline-block;
+  margin-bottom: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.network-mode-banner strong {
+  display: block;
+  font-size: 1.05rem;
+  margin-bottom: 0.35rem;
+}
+
+.network-mode-banner p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.network-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.network-mode-card {
+  text-align: left;
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgba(248, 113, 113, 0.05), rgba(15, 23, 42, 0.08)),
+    var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.network-mode-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.network-mode-card.active {
+  border-color: rgba(248, 113, 113, 0.55);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
+}
+
+.network-mode-card.nat {
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.06), rgba(15, 23, 42, 0.08)),
+    var(--bg-card);
+}
+
+.network-mode-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.network-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border: 1px solid transparent;
+}
+
+.network-mode-pill.dedicated {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+.network-mode-pill.nat {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.14);
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+.network-mode-check {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.network-mode-card.active .network-mode-check {
+  color: #f87171;
+}
+
+.network-mode-card strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+
+.network-mode-card p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.network-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
 }
 
 /* Price Section */
@@ -916,4 +1196,10 @@ function formatMemory(mb) {
 }
 .stepper-input::-webkit-inner-spin-button,
 .stepper-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+@media (max-width: 720px) {
+  .network-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

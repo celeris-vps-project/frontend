@@ -189,6 +189,11 @@ export async function updateProductPrice(id, price) {
   return res.data
 }
 
+export async function updateProductNetworkMode(id, networkMode) {
+  const res = await request('PUT', `/api/v1/admin/products/${id}/network`, { network_mode: networkMode })
+  return res.data
+}
+
 export async function adjustProductStock(id, totalSlots) {
   const res = await request('PUT', `/api/v1/admin/products/${id}/stock`, { total_slots: totalSlots })
   return res.data
