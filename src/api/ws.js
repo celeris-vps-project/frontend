@@ -17,11 +17,12 @@
  */
 import { ref, reactive, onUnmounted } from 'vue'
 import { fetchWsTicket } from './admin'
+import { fetchInstanceWsTicket } from './billing'
 
 /** Derive the WS base URL from the HTTP base URL (supports both http and https). */
 function wsBaseUrl() {
   const httpBase =
-    import.meta.env.VITE_API_BASE_URL || ''
+    import.meta.env.VITE_API_BASE_URL || window.location.origin
   return httpBase.replace(/^http/, 'ws')
 }
 
@@ -119,5 +120,96 @@ export function useNodeStatusWS() {
   onUnmounted(disconnect)
 
   return { nodeStates, connected, disconnect }
+}
+
+/**
+ * Connect to the customer instance-status WebSocket.
+ * Returns a reactive map keyed by instance ID.
+ */
+export function useInstanceStatusWS() {
+  const instanceStates = reactive({})
+  const connected = ref(false)
+
+  let ws = null
+  let reconnectTimer = null
+  let reconnectDelay = 1000
+  const MAX_DELAY = 30000
+  let intentionalClose = false
+
+  function connect() {
+    fetchInstanceWsTicket()
+      .then((ticket) => {
+        if (!ticket) {
+          console.warn('[instance-ws] failed to obtain ticket')
+          scheduleReconnect()
+          return
+        }
+
+        const url = `${wsBaseUrl()}/api/v1/ws/instances?ticket=${encodeURIComponent(ticket)}`
+        ws = new WebSocket(url)
+
+        ws.onopen = () => {
+          connected.value = true
+          reconnectDelay = 1000
+          console.log('[instance-ws] connected')
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            if (data.id) {
+              instanceStates[data.id] = data
+            }
+          } catch (e) {
+            console.warn('[instance-ws] failed to parse message', e)
+          }
+        }
+
+        ws.onclose = () => {
+          connected.value = false
+          ws = null
+          if (!intentionalClose) {
+            console.log(`[instance-ws] disconnected, reconnecting in ${reconnectDelay}ms`)
+            scheduleReconnect()
+          }
+        }
+
+        ws.onerror = (err) => {
+          console.warn('[instance-ws] error', err)
+          ws?.close()
+        }
+      })
+      .catch((err) => {
+        console.warn('[instance-ws] ticket fetch failed', err)
+        scheduleReconnect()
+      })
+  }
+
+  function scheduleReconnect() {
+    if (reconnectTimer) return
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      reconnectDelay = Math.min(reconnectDelay * 2, MAX_DELAY)
+      connect()
+    }, reconnectDelay)
+  }
+
+  function disconnect() {
+    intentionalClose = true
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
+      reconnectTimer = null
+    }
+    if (ws) {
+      ws.close()
+      ws = null
+    }
+    connected.value = false
+  }
+
+  connect()
+  onUnmounted(disconnect)
+
+  return { instanceStates, connected, disconnect }
 }
 

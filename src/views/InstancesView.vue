@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import SkeletonLoader from '../components/SkeletonLoader.vue'
 import { listInstances, formatDate } from '../api/billing.js'
-import { useI18n } from 'vue-i18n'
+import { useInstanceStatusWS } from '../api/ws'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -14,33 +15,10 @@ const loading = ref(true)
 const error = ref('')
 const filterStatus = ref('all')
 const searchQuery = ref('')
-let pollTimer = null
+
+const { instanceStates, connected } = useInstanceStatusWS()
 
 onMounted(fetchInstances)
-onUnmounted(stopPolling)
-
-// Auto-poll: when any instance is "pending", refresh every 10s
-const hasPending = computed(() => instances.value.some(i => i.status === 'pending'))
-watch(hasPending, (pending) => {
-  if (pending) startPolling()
-  else stopPolling()
-})
-
-function startPolling() {
-  if (pollTimer) return
-  pollTimer = setInterval(async () => {
-    try {
-      instances.value = await listInstances()
-    } catch { /* silent — user already sees the list */ }
-  }, 10000) // 10 seconds
-}
-
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
 
 async function fetchInstances() {
   loading.value = true
@@ -55,29 +33,49 @@ async function fetchInstances() {
   }
 }
 
+const mergedInstances = computed(() => {
+  return instances.value.map((inst) => {
+    const ws = instanceStates[inst.id]
+    return ws ? { ...inst, ...ws } : inst
+  })
+})
+
 const filteredInstances = computed(() => {
-  let results = instances.value
+  let results = mergedInstances.value
   if (filterStatus.value !== 'all') {
-    results = results.filter(i => i.status === filterStatus.value)
+    results = results.filter((inst) => inst.status === filterStatus.value)
   }
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
-    results = results.filter(i =>
-      i.id.toLowerCase().includes(q) ||
-      i.hostname.toLowerCase().includes(q) ||
-      i.plan.toLowerCase().includes(q) ||
-      (i.ipv4 && i.ipv4.includes(q))
+    results = results.filter((inst) =>
+      inst.id.toLowerCase().includes(q) ||
+      inst.hostname.toLowerCase().includes(q) ||
+      inst.plan.toLowerCase().includes(q) ||
+      (inst.ipv4 && inst.ipv4.includes(q))
     )
   }
   return results
 })
 
 const statusCounts = computed(() => {
-  const counts = { all: instances.value.length, pending: 0, running: 0, stopped: 0, suspended: 0, terminated: 0 }
-  instances.value.forEach(i => {
-    if (counts[i.status] !== undefined) counts[i.status]++
+  const counts = { all: mergedInstances.value.length, pending: 0, running: 0, stopped: 0, suspended: 0, terminated: 0 }
+  mergedInstances.value.forEach((inst) => {
+    if (counts[inst.status] !== undefined) counts[inst.status] += 1
   })
   return counts
+})
+
+const fleetStats = computed(() => {
+  const all = mergedInstances.value
+  const running = all.filter((inst) => inst.status === 'running').length
+  const pending = all.filter((inst) => inst.status === 'pending').length
+  const networkReady = all.filter((inst) => inst.ipv4 || inst.ipv6 || inst.nat_port).length
+  return {
+    total: all.length,
+    running,
+    pending,
+    networkReady,
+  }
 })
 
 const filterTabs = computed(() => [
@@ -97,6 +95,10 @@ function specLabel(inst) {
 function goToInstance(id) {
   router.push(`/instances/${id}`)
 }
+
+function hasLiveState(id) {
+  return Boolean(instanceStates[id])
+}
 </script>
 
 <template>
@@ -107,12 +109,48 @@ function goToInstance(id) {
           <h1 class="page-title">{{ t('instances.title') }}</h1>
           <p class="page-subtitle">{{ t('instances.subtitle') }}</p>
         </div>
-        <router-link to="/instances/new" class="action-btn primary-btn small-btn">
-          {{ t('instances.newInstance') }}
-        </router-link>
+        <div class="header-actions">
+          <div class="sync-pill" :class="{ offline: !connected }">
+            <span class="sync-dot"></span>
+            <span>{{ connected ? 'WebSocket Live' : 'Live Sync Reconnecting' }}</span>
+          </div>
+          <router-link to="/instances/new" class="action-btn primary-btn small-btn">
+            {{ t('instances.newInstance') }}
+          </router-link>
+        </div>
       </header>
 
-      <!-- Filters -->
+      <div class="stats-grid">
+        <div class="stat-card glass-card">
+          <div class="stat-icon total-icon"></div>
+          <div class="stat-content">
+            <span class="stat-label">Total VPS</span>
+            <span class="stat-value">{{ fleetStats.total }}</span>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <div class="stat-icon running-icon"></div>
+          <div class="stat-content">
+            <span class="stat-label">Running</span>
+            <span class="stat-value">{{ fleetStats.running }}</span>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <div class="stat-icon pending-icon"></div>
+          <div class="stat-content">
+            <span class="stat-label">Provisioning</span>
+            <span class="stat-value">{{ fleetStats.pending }}</span>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <div class="stat-icon network-icon"></div>
+          <div class="stat-content">
+            <span class="stat-label">Network Ready</span>
+            <span class="stat-value">{{ fleetStats.networkReady }}</span>
+          </div>
+        </div>
+      </div>
+
       <div class="filters glass-card">
         <div class="filter-tabs">
           <button
@@ -127,20 +165,25 @@ function goToInstance(id) {
           </button>
         </div>
         <div class="search-box">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input v-model="searchQuery" type="text" :placeholder="t('instances.searchPlaceholder')" class="search-input" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.4;">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            v-model="searchQuery"
+            type="text"
+            :placeholder="t('instances.searchPlaceholder')"
+            class="search-input"
+          />
         </div>
       </div>
 
-      <!-- Loading — Skeleton Cards -->
       <SkeletonLoader v-if="loading" variant="cards" :rows="4" />
 
-      <!-- Error — toast handles the message, just show empty state -->
       <div v-else-if="error" class="empty-state glass-card">
         <p>{{ t('instances.noMatch') }}</p>
       </div>
 
-      <!-- Empty -->
       <div v-else-if="filteredInstances.length === 0" class="empty-state glass-card">
         <p>{{ t('instances.noMatch') }}</p>
         <router-link v-if="instances.length === 0" to="/instances/new" class="action-btn primary-btn small-btn">
@@ -148,7 +191,6 @@ function goToInstance(id) {
         </router-link>
       </div>
 
-      <!-- Instance List -->
       <div v-else class="instance-list">
         <div
           v-for="inst in filteredInstances"
@@ -158,7 +200,10 @@ function goToInstance(id) {
         >
           <div class="instance-card-top">
             <div class="instance-id-col">
-              <span class="instance-hostname">{{ inst.hostname }}</span>
+              <div class="instance-hostname-row">
+                <span class="instance-hostname">{{ inst.hostname }}</span>
+                <span v-if="hasLiveState(inst.id)" class="live-chip">LIVE</span>
+              </div>
               <span class="instance-hash">#{{ inst.id.slice(0, 8) }}</span>
             </div>
             <StatusBadge :status="inst.status" />
@@ -170,13 +215,16 @@ function goToInstance(id) {
               <span class="spec-tag">{{ specLabel(inst) }}</span>
               <span class="spec-tag">{{ inst.os }}</span>
             </div>
+
             <div v-if="inst.ipv4 || inst.ipv6 || inst.nat_port" class="instance-ip">
               <span v-if="inst.ipv4" class="ip-tag">{{ inst.ipv4 }}</span>
               <span v-if="inst.nat_port" class="ip-tag nat-tag">NAT :{{ inst.nat_port }}</span>
               <span v-if="inst.ipv6" class="ip-tag ipv6">{{ inst.ipv6 }}</span>
             </div>
+
             <div v-if="inst.status === 'pending'" class="provisioning-hint">
-              <span class="provisioning-dot"></span> VM 正在创建中...
+              <span class="provisioning-dot"></span>
+              <span>Provisioning is in progress</span>
             </div>
           </div>
 
@@ -191,7 +239,10 @@ function goToInstance(id) {
 </template>
 
 <style scoped>
-.instances-page { max-width: 1100px; margin: 0 auto; }
+.instances-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
 
 .page-header {
   display: flex;
@@ -203,60 +254,222 @@ function goToInstance(id) {
 }
 
 .page-title {
-  margin: 0; font-size: 1.75rem; font-weight: 700;
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
-.page-subtitle { margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.9rem; }
-
-/* Filters */
-.filters {
-  padding: 1rem 1.25rem; margin-bottom: 1.5rem;
-  display: flex; justify-content: space-between; align-items: center;
-  flex-wrap: wrap; gap: 1rem;
+.page-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
-.filter-tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--success);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.sync-pill.offline {
+  color: var(--warning);
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+}
+
+.stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-icon::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border-radius: 999px;
+}
+
+.total-icon {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.18);
+}
+
+.total-icon::after {
+  background: #60a5fa;
+}
+
+.running-icon {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.18);
+}
+
+.running-icon::after {
+  background: #22c55e;
+}
+
+.pending-icon {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.18);
+}
+
+.pending-icon::after {
+  background: #f59e0b;
+}
+
+.network-icon {
+  background: rgba(14, 165, 233, 0.08);
+  border-color: rgba(14, 165, 233, 0.18);
+}
+
+.network-icon::after {
+  background: #0ea5e9;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.stat-value {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.filters {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
 
 .filter-tab {
-  padding: 0.4rem 0.8rem; border: 1px solid transparent; border-radius: 10px;
-  background: none; color: var(--text-muted); font-size: 0.82rem;
-  cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
-.filter-tab:hover { background: var(--sidebar-hover-bg); color: var(--text-primary); }
+.filter-tab:hover {
+  background: var(--sidebar-hover-bg);
+  color: var(--text-primary);
+}
 
 .filter-tab.active {
-  background: var(--accent-bg); color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
   border-color: var(--accent-border);
 }
 
 .count-badge {
-  font-size: 0.68rem; background: var(--bg-code); padding: 0.1rem 0.4rem;
-  border-radius: 999px; font-weight: 600;
+  font-size: 0.68rem;
+  background: var(--bg-code);
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 600;
 }
 
-.filter-tab.active .count-badge { background: var(--accent-bg-hover); }
+.filter-tab.active .count-badge {
+  background: var(--accent-bg-hover);
+}
 
 .search-box {
-  display: flex; align-items: center; gap: 0.5rem;
-  background: var(--bg-input); border: 1px solid var(--border-default);
-  border-radius: 10px; padding: 0.4rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 0.4rem 0.75rem;
 }
 
 .search-input {
-  background: none; border: none; outline: none;
-  color: var(--text-primary); font-size: 0.85rem; width: 200px;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  width: 200px;
 }
 
-.search-input::placeholder { color: var(--text-muted); }
+.search-input::placeholder {
+  color: var(--text-muted);
+}
 
-/* Instance cards */
-.instance-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.instance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 
 .instance-card {
-  padding: 1.25rem; cursor: pointer; transition: all 0.25s;
-  position: relative; overflow: hidden;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
 }
 
 .instance-card:hover {
@@ -266,87 +479,165 @@ function goToInstance(id) {
 }
 
 .instance-card-top {
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 0.75rem;
+  gap: 1rem;
 }
 
-.instance-id-col { display: flex; flex-direction: column; gap: 0.15rem; }
+.instance-id-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.instance-hostname-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
 
 .instance-hostname {
   font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 1rem; font-weight: 600; color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .instance-hash {
   font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 0.75rem; color: var(--accent);
+  font-size: 0.75rem;
+  color: var(--accent);
 }
 
-.instance-card-body { margin-bottom: 0.75rem; }
+.live-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--success);
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.18);
+}
 
-.instance-specs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
+.instance-card-body {
+  margin-bottom: 0.75rem;
+}
+
+.instance-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
 
 .spec-tag {
-  font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 6px;
-  background: var(--bg-code); border: 1px solid var(--border-default);
+  font-size: 0.72rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  background: var(--bg-code);
+  border: 1px solid var(--border-default);
   color: var(--text-secondary);
 }
 
 .plan-tag {
-  background: var(--accent-bg); border-color: var(--accent-border);
-  color: var(--accent); font-weight: 600;
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 600;
 }
 
-.instance-ip { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.instance-ip {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
 
 .ip-tag {
   font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;
-  background: var(--success-bg); border: 1px solid var(--success-border);
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
   color: var(--success);
 }
 
 .ip-tag.ipv6 {
-  color: var(--info); background: var(--info-bg); border-color: var(--info-border);
+  color: var(--info);
+  background: var(--info-bg);
+  border-color: var(--info-border);
 }
 
 .ip-tag.nat-tag {
-  color: #a855f7; background: rgba(168, 85, 247, 0.08);
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.08);
   border-color: rgba(168, 85, 247, 0.2);
 }
 
 .provisioning-hint {
-  display: flex; align-items: center; gap: 0.4rem;
-  font-size: 0.78rem; color: var(--warning); margin-top: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--warning);
+  margin-top: 0.45rem;
 }
 
 .provisioning-dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: var(--warning);
   animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.7); }
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
 }
 
-.instance-card-bottom { display: flex; justify-content: space-between; align-items: center; }
-.created-date { font-size: 0.78rem; color: var(--text-muted); }
-.running-since { font-size: 0.78rem; color: var(--success); }
-
-/* States */
-.loading-state, .empty-state, .error-state {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 0.75rem; padding: 3rem 1.5rem; color: var(--text-muted);
+.instance-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.spinner {
-  width: 28px; height: 28px;
-  border: 3px solid var(--border-default);
-  border-top-color: var(--spinner-color);
-  border-radius: 50%; animation: spin 0.8s linear infinite;
+.created-date {
+  font-size: 0.78rem;
+  color: var(--text-muted);
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+.running-since {
+  font-size: 0.78rem;
+  color: var(--success);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 720px) {
+  .search-input {
+    width: 150px;
+  }
+}
 </style>

@@ -1,4 +1,4 @@
-import { request } from './request'
+import { request, API_BASE_URL, authHeaders } from './request'
 
 // ---- Invoice API (authenticated, billing module) ----
 
@@ -196,6 +196,20 @@ export async function unsuspendInstance(id) {
 export async function terminateInstance(id) {
   const res = await request('POST', `/api/v1/instances/${id}/terminate`)
   return res.data
+}
+
+export async function fetchInstanceWsTicket() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/ws/instances/ticket`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    if (!response.ok) return null
+    const data = await response.json()
+    return data.ticket ?? null
+  } catch {
+    return null
+  }
 }
 
 // ---- Status helpers ----
