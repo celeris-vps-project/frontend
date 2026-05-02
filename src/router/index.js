@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
+import ForgotPasswordView from '../views/ForgotPasswordView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import InstancesView from '../views/InstancesView.vue'
 import InstanceDetailView from '../views/InstanceDetailView.vue'
@@ -25,12 +26,15 @@ import AdminPerformanceView from '../views/admin/AdminPerformanceView.vue'
 import AdminPaymentProvidersView from '../views/admin/AdminPaymentProvidersView.vue'
 import AdminCreatePaymentProviderView from '../views/admin/AdminCreatePaymentProviderView.vue'
 import AdminEditPaymentProviderView from '../views/admin/AdminEditPaymentProviderView.vue'
+import AdminGeneralSettingsView from '../views/admin/AdminGeneralSettingsView.vue'
+import AdminSMTPSettingsView from '../views/admin/AdminSMTPSettingsView.vue'
 import { getToken, getRole } from '../api/auth'
 
 const routes = [
   { path: '/', redirect: '/dashboard' },
   { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
   { path: '/register', name: 'register', component: RegisterView, meta: { guest: true } },
+  { path: '/forgot-password', name: 'forgot-password', component: ForgotPasswordView, meta: { guest: true } },
   { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { auth: true } },
   { path: '/instances', name: 'instances', component: InstancesView, meta: { auth: true } },
   { path: '/instances/new', name: 'new-instance', component: NewInstanceView, meta: { auth: true } },
@@ -68,7 +72,9 @@ const routes = [
   { path: '/admin/payment-providers/:id/edit', name: 'admin-edit-payment-provider', component: AdminEditPaymentProviderView, meta: { auth: true, admin: true } },
 
   // Admin Performance monitor
-  { path: '/admin/performance', name: 'admin-performance', component: AdminPerformanceView, meta: { auth: true, admin: true } }
+  { path: '/admin/performance', name: 'admin-performance', component: AdminPerformanceView, meta: { auth: true, admin: true } },
+  { path: '/admin/general', name: 'admin-general-settings', component: AdminGeneralSettingsView, meta: { auth: true, admin: true } },
+  { path: '/admin/smtp', name: 'admin-smtp-settings', component: AdminSMTPSettingsView, meta: { auth: true, admin: true } }
 ]
 
 const router = createRouter({

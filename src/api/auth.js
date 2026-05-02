@@ -49,6 +49,44 @@ export async function register(email, password) {
   }
 }
 
+export async function registerWithCode(email, password, verificationCode) {
+  const data = await request('/api/v1/auth/register', {
+    email,
+    password,
+    verification_code: verificationCode
+  })
+  return {
+    token: data.token,
+    role: data.role || 'user',
+    message: data.message || 'Register successful'
+  }
+}
+
+export async function fetchAuthOptions() {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/options`)
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(data?.error || data?.message || 'Failed to load auth options')
+  }
+  return data.data || {}
+}
+
+export async function sendRegistrationCode(email) {
+  return await request('/api/v1/auth/register/code', { email })
+}
+
+export async function sendPasswordResetCode(email) {
+  return await request('/api/v1/auth/password/forgot', { email })
+}
+
+export async function resetPassword(email, code, newPassword) {
+  return await request('/api/v1/auth/password/reset', {
+    email,
+    code,
+    new_password: newPassword
+  })
+}
+
 export function saveToken(token) {
   if (!token) return
   localStorage.setItem('auth_token', token)

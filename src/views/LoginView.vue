@@ -66,6 +66,27 @@ async function onSubmit() {
         {{ t('auth.noAccount') }}
         <RouterLink to="/register">{{ t('auth.register') }}</RouterLink>
       </p>
+      <p class="forgot-link">
+        <RouterLink to="/forgot-password">找回密码</RouterLink>
+      </p>
     </section>
   </main>
 </template>
+
+<style scoped>
+.forgot-link {
+  margin-top: 0.8rem;
+  text-align: center;
+}
+
+.forgot-link a {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.forgot-link a:hover {
+  color: var(--accent);
+}
+</style>

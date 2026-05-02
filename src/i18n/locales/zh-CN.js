@@ -509,6 +509,8 @@ export default {
     availableSlots: '可用槽位',
     natBridge: 'NAT 网桥',
     natEntryHost: 'NAT 入口',
+    natEntryHint: '用户连接 NAT 实例时使用的外部 IP 或域名；留空则兼容使用 Agent 上报 IP。',
+    natEntrySaved: 'NAT 入口已更新。',
     natPortRange: 'NAT 端口范围',
     statusLabel: '状态',
     enabled: '已启用',

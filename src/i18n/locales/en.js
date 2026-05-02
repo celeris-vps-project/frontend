@@ -509,6 +509,8 @@ export default {
     availableSlots: 'Available Slots',
     natBridge: 'NAT Bridge',
     natEntryHost: 'NAT Entry',
+    natEntryHint: 'External IP or hostname users connect to for NAT instances; when empty, the agent-reported IP is used as a fallback.',
+    natEntrySaved: 'NAT entry updated.',
     natPortRange: 'NAT Port Range',
     statusLabel: 'Status',
     enabled: 'Enabled',

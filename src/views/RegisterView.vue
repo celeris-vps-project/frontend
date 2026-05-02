@@ -1,7 +1,14 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { register, saveToken, saveRole } from '../api/auth'
+import {
+  fetchAuthOptions,
+  register,
+  registerWithCode,
+  saveRole,
+  saveToken,
+  sendRegistrationCode
+} from '../api/auth'
 import { useI18n } from 'vue-i18n'
 import { translateError } from '../utils/errorHelper'
 import { useToast } from '../composables/useToast'
@@ -12,7 +19,19 @@ const toast = useToast()
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
+const verificationCode = ref('')
+const verificationRequired = ref(false)
 const loading = ref(false)
+const sendingCode = ref(false)
+
+onMounted(async () => {
+  try {
+    const options = await fetchAuthOptions()
+    verificationRequired.value = !!options.registration_verification_required
+  } catch {
+    verificationRequired.value = false
+  }
+})
 
 /**
  * Validate password format on the frontend.
@@ -62,9 +81,15 @@ async function onSubmit() {
   if (!validatePassword(password.value)) {
     return
   }
+  if (verificationRequired.value && !verificationCode.value.trim()) {
+    toast.error('请输入邮箱验证码。')
+    return
+  }
   loading.value = true
   try {
-    const result = await register(email.value, password.value)
+    const result = verificationRequired.value
+      ? await registerWithCode(email.value, password.value, verificationCode.value.trim())
+      : await register(email.value, password.value)
     saveToken(result.token)
     saveRole(result.role || 'user')
     router.push('/dashboard')
@@ -72,6 +97,19 @@ async function onSubmit() {
     toast.error(translateError(err))
   } finally {
     loading.value = false
+  }
+}
+
+async function requestCode() {
+  if (!email.value || !validateEmail(email.value)) return
+  sendingCode.value = true
+  try {
+    await sendRegistrationCode(email.value)
+    toast.success('验证码已发送，请检查邮箱。')
+  } catch (err) {
+    toast.error(translateError(err))
+  } finally {
+    sendingCode.value = false
   }
 }
 </script>
@@ -100,6 +138,23 @@ async function onSubmit() {
           <label for="confirmPassword">{{ t('auth.confirmPassword') }}</label>
           <input id="confirmPassword" v-model="confirmPassword" type="password" autocomplete="new-password" placeholder="••••••••" />
         </div>
+        <div v-if="verificationRequired" class="form-field">
+          <label for="verificationCode">邮箱验证码</label>
+          <div class="code-row">
+            <input
+              id="verificationCode"
+              v-model="verificationCode"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              autocomplete="one-time-code"
+              placeholder="6 位验证码"
+            />
+            <button class="action-btn secondary-btn code-btn" type="button" :disabled="sendingCode" @click="requestCode">
+              {{ sendingCode ? '发送中...' : '发送验证码' }}
+            </button>
+          </div>
+        </div>
         <button class="action-btn primary-btn" type="submit" :disabled="loading">
           {{ loading ? t('auth.creatingAccount') : t('auth.createAccount') }}
         </button>
@@ -113,3 +168,28 @@ async function onSubmit() {
     </section>
   </main>
 </template>
+
+<style scoped>
+.code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.code-btn {
+  width: auto;
+  white-space: nowrap;
+  border-radius: 12px;
+  padding-inline: 0.9rem;
+}
+
+@media (max-width: 420px) {
+  .code-row {
+    grid-template-columns: 1fr;
+  }
+
+  .code-btn {
+    width: 100%;
+  }
+}
+</style>

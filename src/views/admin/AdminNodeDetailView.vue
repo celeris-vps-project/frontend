@@ -87,6 +87,7 @@ async function fetchAll() {
       listIPs(nodeID)
     ])
     node.value = n
+    natEntryForm.value = n.nat_entry_host || ''
     ips.value = ipList
 
     // Fetch products matching this node's location
@@ -774,6 +775,21 @@ credential_file: "node-credential.yaml"</pre>
   flex-wrap: wrap;
 }
 
+.inline-label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  min-width: 90px;
+}
+
+.nat-entry-form {
+  margin-top: 1rem;
+}
+
+.nat-entry-form .form-input {
+  min-width: min(100%, 280px);
+  flex: 1;
+}
+
 .form-input, .form-select {
   background: var(--bg-input);
   border: 1px solid var(--border-default);
@@ -800,6 +816,12 @@ credential_file: "node-credential.yaml"</pre>
   margin: 0.5rem 0 0;
   color: var(--success);
   font-size: 0.8rem;
+}
+
+.form-hint {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 
 .empty-inline {

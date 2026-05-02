@@ -265,6 +265,32 @@ export async function deletePaymentProvider(id) {
   return await request('DELETE', `/api/v1/admin/payment-providers/${id}`)
 }
 
+// ---- General / SMTP settings ----
+
+export async function getGeneralSettings() {
+  const res = await request('GET', '/api/v1/admin/general')
+  return res.data
+}
+
+export async function updateGeneralSettings(payload) {
+  const res = await request('PUT', '/api/v1/admin/general', payload)
+  return res.data
+}
+
+export async function getSMTPSettings() {
+  const res = await request('GET', '/api/v1/admin/smtp')
+  return res.data
+}
+
+export async function updateSMTPSettings(payload) {
+  const res = await request('PUT', '/api/v1/admin/smtp', payload)
+  return res.data
+}
+
+export async function testSMTP(to) {
+  return await request('POST', '/api/v1/admin/smtp/test', { email: to })
+}
+
 // ---- Format helpers ----
 
 export function formatDate(dateStr) {
