@@ -294,6 +294,10 @@ function goToProduct(id) {
               <span class="mgmt-value" :class="{ 'val-warn': liveNode.available_slots === 0 }">{{ liveNode.available_slots }}</span>
             </div>
             <div class="mgmt-item">
+              <span class="mgmt-label">{{ t('adminNodeDetail.natBridge') }}</span>
+              <span class="mgmt-value mono">{{ liveNode.nat_bridge || '-' }}</span>
+            </div>
+            <div class="mgmt-item">
               <span class="mgmt-label">{{ t('adminNodeDetail.natPortRange') }}</span>
               <span class="mgmt-value mono">{{ formatNatPortRange(liveNode) }}</span>
             </div>

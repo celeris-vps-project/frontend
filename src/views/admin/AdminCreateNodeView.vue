@@ -16,6 +16,7 @@ const form = ref({
   location: '',
   name: '',
   total_slots: 10,
+  nat_bridge: 'vmbr2',
   nat_port_start: 20000,
   nat_port_end: 65535,
   token_ttl_minutes: 1440 // 24 hours
@@ -34,8 +35,17 @@ const natPortRangeInvalid = computed(() => {
   return !Number.isInteger(start) || !Number.isInteger(end) || start < 1024 || end > 65535 || start >= end
 })
 
+const natBridgeInvalid = computed(() => {
+  const bridge = String(form.value.nat_bridge || '').trim()
+  return !bridge || bridge.length > 15 || /\s/.test(bridge)
+})
+
 async function handleSubmit() {
   error.value = ''
+  if (natBridgeInvalid.value) {
+    error.value = t('adminCreateNode.natBridgeInvalid')
+    return
+  }
   if (natPortRangeInvalid.value) {
     error.value = t('adminCreateNode.natPortRangeInvalid')
     return
@@ -44,6 +54,7 @@ async function handleSubmit() {
   try {
     const { node, bootstrap_token } = await createHostNode({
       ...form.value,
+      nat_bridge: String(form.value.nat_bridge || '').trim(),
       token_description: `Bootstrap token for ${form.value.code || form.value.name}`
     })
     if (bootstrap_token) {
@@ -135,6 +146,12 @@ function goToNode() {
             </div>
 
             <div class="form-group">
+              <label>{{ t('adminCreateNode.natBridge') }}</label>
+              <input v-model="form.nat_bridge" type="text" placeholder="vmbr2" required class="form-input" />
+              <span class="form-hint">{{ t('adminCreateNode.natBridgeHint') }}</span>
+            </div>
+
+            <div class="form-group">
               <label>{{ t('adminCreateNode.natPortStart') }}</label>
               <input v-model.number="form.nat_port_start" type="number" min="1024" max="65535" required class="form-input" />
               <span class="form-hint">{{ t('adminCreateNode.natPortStartHint') }}</span>
@@ -165,7 +182,7 @@ function goToNode() {
             <button
               type="submit"
               class="action-btn primary-btn"
-              :disabled="loading || !form.location || natPortRangeInvalid"
+              :disabled="loading || !form.location || natBridgeInvalid || natPortRangeInvalid"
             >
               {{ loading ? t('adminCreateNode.creatingNode') : t('adminCreateNode.createNode') }}
             </button>

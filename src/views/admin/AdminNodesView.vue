@@ -180,6 +180,7 @@ function formatNatPortRange(node) {
             <div class="node-meta">
               <span class="meta-tag location-tag">📍 {{ node.location }}</span>
               <span v-if="node.ip" class="meta-tag ip-tag">{{ node.ip }}</span>
+              <span v-if="node.nat_bridge" class="meta-tag nat-tag">{{ t('adminNodes.natBridge') }} {{ node.nat_bridge }}</span>
               <span v-if="formatNatPortRange(node)" class="meta-tag nat-tag">{{ t('adminNodes.natPortRange') }} {{ formatNatPortRange(node) }}</span>
               <span v-if="node.agent_ver" class="meta-tag ver-tag">{{ node.agent_ver }}</span>
             </div>
