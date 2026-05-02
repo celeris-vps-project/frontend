@@ -221,6 +221,11 @@ function formatCycle(cycle) {
   return map[cycle] || `/${cycle}`
 }
 
+function formatNatPortRange(n) {
+  if (!n?.nat_port_start || !n?.nat_port_end) return '—'
+  return `${n.nat_port_start}-${n.nat_port_end}`
+}
+
 function goToProduct(id) {
   router.push(`/admin/products/${id}`)
 }
@@ -287,6 +292,10 @@ function goToProduct(id) {
             <div class="mgmt-item">
               <span class="mgmt-label">{{ t('adminNodeDetail.availableSlots') }}</span>
               <span class="mgmt-value" :class="{ 'val-warn': liveNode.available_slots === 0 }">{{ liveNode.available_slots }}</span>
+            </div>
+            <div class="mgmt-item">
+              <span class="mgmt-label">{{ t('adminNodeDetail.natPortRange') }}</span>
+              <span class="mgmt-value mono">{{ formatNatPortRange(liveNode) }}</span>
             </div>
             <div class="mgmt-item">
               <span class="mgmt-label">{{ t('adminNodeDetail.statusLabel') }}</span>

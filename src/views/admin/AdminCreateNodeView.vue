@@ -16,6 +16,8 @@ const form = ref({
   location: '',
   name: '',
   total_slots: 10,
+  nat_port_start: 20000,
+  nat_port_end: 65535,
   token_ttl_minutes: 1440 // 24 hours
 })
 
@@ -26,8 +28,18 @@ const codePlaceholder = computed(() => {
   return 'Auto-generated from location'
 })
 
+const natPortRangeInvalid = computed(() => {
+  const start = Number(form.value.nat_port_start)
+  const end = Number(form.value.nat_port_end)
+  return !Number.isInteger(start) || !Number.isInteger(end) || start < 1024 || end > 65535 || start >= end
+})
+
 async function handleSubmit() {
   error.value = ''
+  if (natPortRangeInvalid.value) {
+    error.value = t('adminCreateNode.natPortRangeInvalid')
+    return
+  }
   loading.value = true
   try {
     const { node, bootstrap_token } = await createHostNode({
@@ -123,6 +135,18 @@ function goToNode() {
             </div>
 
             <div class="form-group">
+              <label>{{ t('adminCreateNode.natPortStart') }}</label>
+              <input v-model.number="form.nat_port_start" type="number" min="1024" max="65535" required class="form-input" />
+              <span class="form-hint">{{ t('adminCreateNode.natPortStartHint') }}</span>
+            </div>
+
+            <div class="form-group">
+              <label>{{ t('adminCreateNode.natPortEnd') }}</label>
+              <input v-model.number="form.nat_port_end" type="number" min="1024" max="65535" required class="form-input" />
+              <span class="form-hint">{{ t('adminCreateNode.natPortEndHint') }}</span>
+            </div>
+
+            <div class="form-group">
               <label>{{ t('adminCreateNode.bootstrapTokenTTL') }}</label>
               <select v-model.number="form.token_ttl_minutes" class="form-input">
                 <option :value="60">{{ t('adminCreateNode.ttl1h') }}</option>
@@ -141,7 +165,7 @@ function goToNode() {
             <button
               type="submit"
               class="action-btn primary-btn"
-              :disabled="loading || !form.location"
+              :disabled="loading || !form.location || natPortRangeInvalid"
             >
               {{ loading ? t('adminCreateNode.creatingNode') : t('adminCreateNode.createNode') }}
             </button>

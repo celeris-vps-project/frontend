@@ -22,8 +22,26 @@ export async function getHostNode(id) {
   return res.data
 }
 
-export async function createHostNode({ code, location, name, total_slots, token_ttl_minutes, token_description }) {
-  const res = await request('POST', '/api/v1/admin/host-nodes', { code, location, name, total_slots, token_ttl_minutes, token_description })
+export async function createHostNode({
+  code,
+  location,
+  name,
+  total_slots,
+  nat_port_start,
+  nat_port_end,
+  token_ttl_minutes,
+  token_description
+}) {
+  const res = await request('POST', '/api/v1/admin/host-nodes', {
+    code,
+    location,
+    name,
+    total_slots,
+    nat_port_start,
+    nat_port_end,
+    token_ttl_minutes,
+    token_description
+  })
   return { node: res.data, bootstrap_token: res.bootstrap_token }
 }
 

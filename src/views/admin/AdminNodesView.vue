@@ -94,6 +94,11 @@ function usageColor(val) {
   if (val < 80) return '#f59e0b'
   return '#ef4444'
 }
+
+function formatNatPortRange(node) {
+  if (!node?.nat_port_start || !node?.nat_port_end) return ''
+  return `${node.nat_port_start}-${node.nat_port_end}`
+}
 </script>
 
 <template>
@@ -175,6 +180,7 @@ function usageColor(val) {
             <div class="node-meta">
               <span class="meta-tag location-tag">📍 {{ node.location }}</span>
               <span v-if="node.ip" class="meta-tag ip-tag">{{ node.ip }}</span>
+              <span v-if="formatNatPortRange(node)" class="meta-tag nat-tag">{{ t('adminNodes.natPortRange') }} {{ formatNatPortRange(node) }}</span>
               <span v-if="node.agent_ver" class="meta-tag ver-tag">{{ node.agent_ver }}</span>
             </div>
 
