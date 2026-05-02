@@ -30,6 +30,7 @@ export async function createHostNode({
   nat_port_start,
   nat_port_end,
   nat_bridge,
+  nat_entry_host,
   token_ttl_minutes,
   token_description
 }) {
@@ -41,6 +42,7 @@ export async function createHostNode({
     nat_port_start,
     nat_port_end,
     nat_bridge,
+    nat_entry_host,
     token_ttl_minutes,
     token_description
   })

@@ -16,6 +16,7 @@ const form = ref({
   location: '',
   name: '',
   total_slots: 10,
+  nat_entry_host: '',
   nat_bridge: 'vmbr2',
   nat_port_start: 20000,
   nat_port_end: 65535,
@@ -54,6 +55,7 @@ async function handleSubmit() {
   try {
     const { node, bootstrap_token } = await createHostNode({
       ...form.value,
+      nat_entry_host: String(form.value.nat_entry_host || '').trim(),
       nat_bridge: String(form.value.nat_bridge || '').trim(),
       token_description: `Bootstrap token for ${form.value.code || form.value.name}`
     })
@@ -149,6 +151,12 @@ function goToNode() {
               <label>{{ t('adminCreateNode.natBridge') }}</label>
               <input v-model="form.nat_bridge" type="text" placeholder="vmbr2" required class="form-input" />
               <span class="form-hint">{{ t('adminCreateNode.natBridgeHint') }}</span>
+            </div>
+
+            <div class="form-group">
+              <label>{{ t('adminCreateNode.natEntryHost') }}</label>
+              <input v-model="form.nat_entry_host" type="text" placeholder="203.0.113.10" class="form-input" />
+              <span class="form-hint">{{ t('adminCreateNode.natEntryHostHint') }}</span>
             </div>
 
             <div class="form-group">

@@ -298,6 +298,10 @@ function goToProduct(id) {
               <span class="mgmt-value mono">{{ liveNode.nat_bridge || '-' }}</span>
             </div>
             <div class="mgmt-item">
+              <span class="mgmt-label">{{ t('adminNodeDetail.natEntryHost') }}</span>
+              <span class="mgmt-value mono">{{ liveNode.nat_entry_host || '-' }}</span>
+            </div>
+            <div class="mgmt-item">
               <span class="mgmt-label">{{ t('adminNodeDetail.natPortRange') }}</span>
               <span class="mgmt-value mono">{{ formatNatPortRange(liveNode) }}</span>
             </div>

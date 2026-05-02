@@ -1,12 +1,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
 import { getOrder } from '../api/billing.js'
 import { getPaymentProviders, initiatePayment } from '../api/payment.js'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const orderID = route.params.id
 const order = ref(null)
@@ -25,16 +27,21 @@ const selectedProvider = ref(null)
 
 // ── Provider type metadata (icon, color, label) ──
 const providerMeta = {
-  crypto_usdt: { icon: '₮', color: '#26a17b', label: 'Crypto USDT' },
-  stripe:      { icon: '💳', color: '#635bff', label: 'Credit Card' },
-  paypal:      { icon: '🅿', color: '#003087', label: 'PayPal' },
-  alipay:      { icon: '💙', color: '#1677ff', label: 'Alipay' },
-  wechat_pay:  { icon: '💚', color: '#07c160', label: 'WeChat Pay' },
-  custom:      { icon: '🔗', color: '#888888', label: 'Custom' },
+  crypto_usdt: { icon: '₮', color: '#26a17b', labelKey: 'checkout.providerTypes.cryptoUsdt' },
+  stripe:      { icon: '💳', color: '#635bff', labelKey: 'checkout.providerTypes.creditCard' },
+  paypal:      { icon: '🅿', color: '#003087', labelKey: 'checkout.providerTypes.paypal' },
+  alipay:      { icon: '💙', color: '#1677ff', labelKey: 'checkout.providerTypes.alipay' },
+  wechat_pay:  { icon: '💚', color: '#07c160', labelKey: 'checkout.providerTypes.wechatPay' },
+  custom:      { icon: '🔗', color: '#888888', labelKey: 'checkout.providerTypes.custom' },
 }
 
 function getProviderMeta(type) {
-  return providerMeta[type] || { icon: '💰', color: '#888', label: type }
+  return providerMeta[type] || { icon: '💰', color: '#888', labelKey: '', fallbackLabel: type }
+}
+
+function providerTypeLabel(type) {
+  const meta = getProviderMeta(type)
+  return meta.labelKey ? t(meta.labelKey) : (meta.fallbackLabel || type)
 }
 
 // ── Load order + providers on mount ──
@@ -57,7 +64,7 @@ onMounted(async () => {
       selectedProvider.value = providerData[0]
     }
   } catch (err) {
-    error.value = err.message || 'Failed to load order'
+    error.value = err.message || t('checkout.failedToLoadOrder')
   } finally {
     loading.value = false
     providersLoading.value = false
@@ -107,9 +114,9 @@ function selectProvider(provider) {
 
 // ── Pay button text ──
 const payButtonText = computed(() => {
-  if (!selectedProvider.value) return 'Select a payment method'
+  if (!selectedProvider.value) return t('checkout.selectMethodFirst')
   const meta = getProviderMeta(selectedProvider.value.type)
-  return `${meta.icon} Pay with ${selectedProvider.value.name} →`
+  return `${meta.icon} ${t('checkout.payWith', { name: selectedProvider.value.name })}`
 })
 
 // ── Pay button handler — routes to appropriate payment page ──
@@ -144,7 +151,7 @@ async function handlePay() {
     paymentStatus.value = 'processing'
     startPolling()
   } catch (err) {
-    payError.value = err.message || 'Payment initiation failed'
+    payError.value = err.message || t('checkout.paymentInitiationFailed')
     paymentStatus.value = 'failed'
     paying.value = false
   }
@@ -171,7 +178,7 @@ function startPolling() {
         clearInterval(pollTimer.value)
         pollTimer.value = null
         paymentStatus.value = 'failed'
-        payError.value = 'Payment confirmation timed out. Please check your order status.'
+        payError.value = t('checkout.paymentTimeout')
         paying.value = false
       }
     } catch {
@@ -195,20 +202,20 @@ function goBack() {
   <AppLayout>
     <div class="checkout-page">
       <header class="page-header">
-        <h1 class="page-title">Checkout</h1>
-        <p class="page-subtitle">Review and complete your payment</p>
+        <h1 class="page-title">{{ t('checkout.title') }}</h1>
+        <p class="page-subtitle">{{ t('checkout.subtitle') }}</p>
       </header>
 
       <!-- Loading -->
       <div v-if="loading" class="glass-card loading-state">
         <div class="spinner"></div>
-        <span>Loading order details...</span>
+        <span>{{ t('checkout.loadingOrder') }}</span>
       </div>
 
       <!-- Error -->
       <div v-else-if="error" class="glass-card error-state">
         <p class="error-text">{{ error }}</p>
-        <button class="action-btn secondary-btn" @click="goBack">← Back to New Instance</button>
+        <button class="action-btn secondary-btn" @click="goBack">{{ t('checkout.backToNewInstance') }}</button>
       </div>
 
       <!-- Checkout panels -->
@@ -218,43 +225,43 @@ function goBack() {
         <div class="panel glass-card specs-panel">
           <div class="panel-header">
             <span class="panel-icon">⚙</span>
-            <h2>Instance Specifications</h2>
+            <h2>{{ t('checkout.instanceSpecs') }}</h2>
           </div>
 
           <div class="spec-list">
             <div class="spec-item">
-              <span class="spec-label">Order ID</span>
+              <span class="spec-label">{{ t('checkout.orderId') }}</span>
               <span class="spec-value mono">{{ order.id }}</span>
             </div>
             <div class="spec-item">
-              <span class="spec-label">Hostname</span>
+              <span class="spec-label">{{ t('checkout.hostname') }}</span>
               <span class="spec-value mono">{{ order.vps?.hostname || '—' }}</span>
             </div>
             <div class="spec-item">
-              <span class="spec-label">Plan</span>
+              <span class="spec-label">{{ t('checkout.plan') }}</span>
               <span class="spec-value">{{ order.vps?.plan || '—' }}</span>
             </div>
             <div class="spec-item">
-              <span class="spec-label">Region</span>
+              <span class="spec-label">{{ t('checkout.region') }}</span>
               <span class="spec-value">{{ order.vps?.region || '—' }}</span>
             </div>
 
             <div class="spec-divider"></div>
 
             <div class="spec-item">
-              <span class="spec-label">CPU</span>
+              <span class="spec-label">{{ t('checkout.cpu') }}</span>
               <span class="spec-value">{{ order.vps?.cpu || '—' }} vCPU</span>
             </div>
             <div class="spec-item">
-              <span class="spec-label">Memory</span>
+              <span class="spec-label">{{ t('checkout.memory') }}</span>
               <span class="spec-value">{{ formatMemory(order.vps?.memory_mb) }}</span>
             </div>
             <div class="spec-item">
-              <span class="spec-label">Disk</span>
+              <span class="spec-label">{{ t('checkout.disk') }}</span>
               <span class="spec-value">{{ order.vps?.disk_gb || '—' }} GB NVMe</span>
             </div>
             <div class="spec-item">
-              <span class="spec-label">Operating System</span>
+              <span class="spec-label">{{ t('checkout.operatingSystem') }}</span>
               <span class="spec-value">{{ osLabel(order.vps?.os) }}</span>
             </div>
           </div>
@@ -264,23 +271,23 @@ function goBack() {
         <div class="panel glass-card payment-panel">
           <div class="panel-header">
             <span class="panel-icon">💳</span>
-            <h2>Payment Details</h2>
+            <h2>{{ t('checkout.paymentDetails') }}</h2>
           </div>
 
           <!-- Order status badge -->
           <div class="status-row">
-            <span class="status-label">Order Status</span>
+            <span class="status-label">{{ t('checkout.orderStatus') }}</span>
             <span class="status-badge" :class="order.status">{{ order.status }}</span>
           </div>
 
           <!-- Payment summary -->
           <div class="payment-summary">
             <div class="pay-row">
-              <span class="pay-label">Amount</span>
+              <span class="pay-label">{{ t('checkout.amount') }}</span>
               <span class="pay-value price-large">{{ formatPrice(order.price_amount, order.currency) }}</span>
             </div>
             <div class="pay-row">
-              <span class="pay-label">Currency</span>
+              <span class="pay-label">{{ t('checkout.currencyLabel') }}</span>
               <span class="pay-value">{{ (order.currency || '').toUpperCase() }}</span>
             </div>
           </div>
@@ -290,19 +297,19 @@ function goBack() {
           <!-- ═══ Payment Method Selection ═══ -->
           <div v-if="paymentStatus === 'idle'" class="provider-section">
             <div class="provider-section-header">
-              <span class="provider-section-label">Select Payment Method</span>
+              <span class="provider-section-label">{{ t('checkout.selectPaymentMethod') }}</span>
             </div>
 
             <!-- Loading providers -->
             <div v-if="providersLoading" class="providers-loading">
               <div class="spinner small-spinner"></div>
-              <span>Loading payment methods...</span>
+              <span>{{ t('checkout.loadingProviders') }}</span>
             </div>
 
             <!-- No providers available -->
             <div v-else-if="providers.length === 0" class="no-providers">
               <span class="no-providers-icon">⚠</span>
-              <p class="no-providers-text">No payment methods available. Please contact support.</p>
+              <p class="no-providers-text">{{ t('checkout.noPaymentMethods') }}</p>
             </div>
 
             <!-- Provider cards -->
@@ -318,7 +325,7 @@ function goBack() {
                 <div class="provider-icon">{{ getProviderMeta(provider.type).icon }}</div>
                 <div class="provider-info">
                   <span class="provider-name">{{ provider.name }}</span>
-                  <span class="provider-type-label">{{ getProviderMeta(provider.type).label }}</span>
+                  <span class="provider-type-label">{{ providerTypeLabel(provider.type) }}</span>
                   <!-- Show supported networks for crypto providers -->
                   <div v-if="provider.networks && provider.networks.length > 0" class="provider-networks">
                     <span
@@ -338,8 +345,8 @@ function goBack() {
             <div class="pay-action">
               <p class="pay-info">
                 {{ selectedProvider
-                  ? 'Click below to proceed with your payment. Your instance will be provisioned automatically after payment confirmation.'
-                  : 'Please select a payment method above to continue.'
+                  ? t('checkout.payInfo')
+                  : t('checkout.selectMethodHint')
                 }}
               </p>
               <button
@@ -358,8 +365,8 @@ function goBack() {
           <div v-else-if="paymentStatus === 'processing'" class="pay-status processing">
             <div class="spinner"></div>
             <div class="status-info">
-              <p class="status-title">Processing Payment...</p>
-              <p class="status-desc">Awaiting confirmation from the payment gateway. This typically takes a few seconds.</p>
+              <p class="status-title">{{ t('checkout.processingPayment') }}</p>
+              <p class="status-desc">{{ t('checkout.processingDesc') }}</p>
             </div>
           </div>
 
@@ -367,18 +374,18 @@ function goBack() {
           <div v-else-if="paymentStatus === 'confirmed'" class="pay-status confirmed">
             <div class="success-icon">✓</div>
             <div class="status-info">
-              <p class="status-title">Payment Confirmed!</p>
-              <p class="status-desc">Your order has been activated and instance provisioning has been triggered.</p>
+              <p class="status-title">{{ t('checkout.paymentConfirmed') }}</p>
+              <p class="status-desc">{{ t('checkout.confirmedDesc') }}</p>
               <p v-if="invoiceID" class="status-desc invoice-link">
-                Invoice: <router-link :to="'/invoices/' + invoiceID" class="invoice-id">{{ invoiceID }}</router-link>
+                {{ t('checkout.invoice') }}: <router-link :to="'/invoices/' + invoiceID" class="invoice-id">{{ invoiceID }}</router-link>
               </p>
             </div>
             <div class="confirmed-actions">
               <button class="action-btn primary-btn" @click="goToInstances">
-                View My Instances →
+                {{ t('checkout.viewMyInstances') }}
               </button>
               <router-link v-if="invoiceID" :to="'/invoices/' + invoiceID" class="action-btn secondary-btn">
-                View Invoice
+                {{ t('checkout.viewInvoice') }}
               </router-link>
             </div>
           </div>
@@ -387,11 +394,11 @@ function goBack() {
           <div v-else-if="paymentStatus === 'failed'" class="pay-status failed">
             <div class="fail-icon">✕</div>
             <div class="status-info">
-              <p class="status-title">Payment Failed</p>
+              <p class="status-title">{{ t('checkout.paymentFailed') }}</p>
               <p class="status-desc error-text">{{ payError }}</p>
             </div>
             <button class="action-btn secondary-btn" @click="paymentStatus = 'idle'; payError = ''">
-              Try Again
+              {{ t('checkout.tryAgain') }}
             </button>
           </div>
 
@@ -399,11 +406,11 @@ function goBack() {
           <div v-if="order.status === 'active' && paymentStatus === 'idle'" class="pay-status confirmed">
             <div class="success-icon">✓</div>
             <div class="status-info">
-              <p class="status-title">Already Paid</p>
-              <p class="status-desc">This order has already been paid and activated.</p>
+              <p class="status-title">{{ t('checkout.alreadyPaid') }}</p>
+              <p class="status-desc">{{ t('checkout.alreadyPaidDesc') }}</p>
             </div>
             <button class="action-btn primary-btn" @click="goToInstances">
-              View My Instances →
+              {{ t('checkout.viewMyInstances') }}
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import QRCode from 'qrcode'
 import AppLayout from '../components/AppLayout.vue'
 import { getOrder } from '../api/billing.js'
@@ -8,6 +9,7 @@ import { getPaymentNetworks, initiatePayment } from '../api/payment.js'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const orderID = route.params.id
 
@@ -55,7 +57,7 @@ onMounted(async () => {
       selectedNetwork.value = networkData[0].network
     }
   } catch (err) {
-    loadError.value = err.message || 'Failed to load payment data'
+    loadError.value = err.message || t('crypto.failedToLoadPayment')
   } finally {
     loading.value = false
   }
@@ -103,7 +105,7 @@ async function handlePay() {
       step.value = 'waiting'
     }
   } catch (err) {
-    payError.value = err.message || 'Payment initiation failed'
+    payError.value = err.message || t('crypto.paymentInitiationFailed')
     step.value = 'failed'
   }
 }
@@ -129,7 +131,7 @@ function startCountdown(expiresAt) {
       clearInterval(countdownTimer.value)
       if (step.value === 'waiting') {
         step.value = 'failed'
-        payError.value = 'Payment expired. Please try again.'
+        payError.value = t('crypto.paymentExpired')
       }
     }
   }
@@ -161,7 +163,7 @@ function startPolling() {
         clearInterval(pollTimer.value)
         if (step.value === 'waiting') {
           step.value = 'failed'
-          payError.value = 'Payment confirmation timed out.'
+          payError.value = t('crypto.paymentTimeout')
         }
       }
     } catch {
@@ -215,21 +217,21 @@ function goBack() {
     <div class="crypto-pay-page">
       <header class="page-header">
         <h1 class="page-title">
-          <span class="usdt-icon">₮</span> USDT Payment
+          <span class="usdt-icon">₮</span> {{ t('crypto.titleText') }}
         </h1>
-        <p class="page-subtitle">Pay with USDT on your preferred blockchain network</p>
+        <p class="page-subtitle">{{ t('crypto.subtitle') }}</p>
       </header>
 
       <!-- Loading -->
       <div v-if="loading" class="glass-card loading-state">
         <div class="spinner"></div>
-        <span>Loading payment details...</span>
+        <span>{{ t('crypto.loadingPayment') }}</span>
       </div>
 
       <!-- Error -->
       <div v-else-if="loadError" class="glass-card error-state">
         <p class="error-text">{{ loadError }}</p>
-        <button class="action-btn secondary-btn" @click="goBack">← Back</button>
+        <button class="action-btn secondary-btn" @click="goBack">{{ t('crypto.backToCheckout') }}</button>
       </div>
 
       <!-- Main content -->
@@ -238,15 +240,15 @@ function goBack() {
         <!-- ═══ Order Summary Bar ═══ -->
         <div class="glass-card summary-bar">
           <div class="summary-item">
-            <span class="summary-label">Order</span>
+            <span class="summary-label">{{ t('crypto.order') }}</span>
             <span class="summary-value mono">{{ order.id?.substring(0, 8) }}...</span>
           </div>
           <div class="summary-item">
-            <span class="summary-label">Plan</span>
+            <span class="summary-label">{{ t('crypto.plan') }}</span>
             <span class="summary-value">{{ order.vps?.plan || '—' }}</span>
           </div>
           <div class="summary-item amount-item">
-            <span class="summary-label">Amount</span>
+            <span class="summary-label">{{ t('crypto.amount') }}</span>
             <span class="summary-value amount-value">{{ formatUSDT(order.price_amount) }} USDT</span>
           </div>
         </div>
@@ -255,8 +257,8 @@ function goBack() {
         <div v-if="step === 'selecting'" class="glass-card step-card">
           <div class="step-header">
             <span class="step-number">1</span>
-            <h2>Select Network</h2>
-            <p class="step-desc">Choose a blockchain network for your USDT transfer</p>
+            <h2>{{ t('crypto.selectNetwork') }}</h2>
+            <p class="step-desc">{{ t('crypto.selectNetworkDesc') }}</p>
           </div>
 
           <div class="network-grid">
@@ -274,7 +276,7 @@ function goBack() {
                 <span class="net-standard">{{ net.contract_standard }}</span>
               </div>
               <div class="net-details">
-                <span class="net-fee">~${{ net.est_fee_usd < 0.01 ? '< 0.01' : net.est_fee_usd.toFixed(2) }} fee</span>
+                <span class="net-fee">{{ t('crypto.fee', { fee: net.est_fee_usd < 0.01 ? '< 0.01' : net.est_fee_usd.toFixed(2) }) }}</span>
                 <span class="net-time">{{ net.confirmation_time }}</span>
               </div>
               <div class="net-check" v-if="selectedNetwork === net.network">✓</div>
@@ -282,15 +284,15 @@ function goBack() {
           </div>
 
           <div class="step-actions">
-            <button class="action-btn secondary-btn" @click="goBack">← Back</button>
+            <button class="action-btn secondary-btn" @click="goBack">{{ t('crypto.backToCheckout') }}</button>
             <button
               class="action-btn primary-btn pay-btn"
               :disabled="!selectedNetwork"
               @click="handlePay"
             >
-              Pay {{ formatUSDT(order.price_amount) }} USDT
+              {{ t('crypto.payAmount', { amount: formatUSDT(order.price_amount) }) }}
               <span v-if="selectedNetwork" class="pay-network">
-                via {{ networkMeta[selectedNetwork]?.label || selectedNetwork }}
+                {{ t('crypto.via', { network: networkMeta[selectedNetwork]?.label || selectedNetwork }) }}
               </span>
             </button>
           </div>
@@ -300,8 +302,8 @@ function goBack() {
         <div v-else-if="step === 'paying'" class="glass-card step-card">
           <div class="center-state">
             <div class="spinner large-spinner"></div>
-            <p class="status-title">Initiating Payment...</p>
-            <p class="status-desc">Generating wallet address and QR code</p>
+            <p class="status-title">{{ t('crypto.initiatingPayment') }}</p>
+            <p class="status-desc">{{ t('crypto.generatingWallet') }}</p>
           </div>
         </div>
 
@@ -309,8 +311,8 @@ function goBack() {
         <div v-else-if="step === 'waiting'" class="glass-card step-card waiting-card">
           <div class="step-header">
             <span class="step-number pulse">2</span>
-            <h2>Send USDT Payment</h2>
-            <p class="step-desc">Scan the QR code or copy the address to send payment</p>
+            <h2>{{ t('crypto.sendPayment') }}</h2>
+            <p class="step-desc">{{ t('crypto.sendPaymentDesc') }}</p>
           </div>
 
           <div class="payment-layout">
@@ -322,14 +324,14 @@ function goBack() {
                   <div class="spinner"></div>
                 </div>
               </div>
-              <p class="qr-hint">Scan with your wallet app</p>
+              <p class="qr-hint">{{ t('crypto.scanWithWallet') }}</p>
             </div>
 
             <!-- Payment Details -->
             <div class="pay-details">
               <!-- Amount -->
               <div class="detail-row amount-row">
-                <span class="detail-label">Amount</span>
+                <span class="detail-label">{{ t('crypto.amountLabel') }}</span>
                 <span class="detail-value amount-large">
                   {{ chargeResult?.crypto?.amount_usdt || formatUSDT(order.price_amount) }}
                   <span class="usdt-badge">USDT</span>
@@ -338,7 +340,7 @@ function goBack() {
 
               <!-- Network -->
               <div class="detail-row">
-                <span class="detail-label">Network</span>
+                <span class="detail-label">{{ t('crypto.networkLabel') }}</span>
                 <span class="detail-value network-badge" :style="{ '--net-color': networkMeta[chargeResult?.crypto?.network]?.color || '#888' }">
                   {{ networkMeta[chargeResult?.crypto?.network]?.icon }}
                   {{ chargeResult?.crypto?.network_display || selectedNetwork }}
@@ -347,18 +349,18 @@ function goBack() {
 
               <!-- Wallet Address -->
               <div class="detail-row address-row">
-                <span class="detail-label">Send to Address</span>
+                <span class="detail-label">{{ t('crypto.sendToAddress') }}</span>
                 <div class="address-box" @click="copyAddress">
                   <span class="address-text">{{ chargeResult?.crypto?.wallet_address }}</span>
                   <button class="copy-btn" :class="{ copied: copyFeedback }">
-                    {{ copyFeedback ? '✓ Copied!' : '📋 Copy' }}
+                    {{ copyFeedback ? t('common.copied') : t('crypto.copyAddress') }}
                   </button>
                 </div>
               </div>
 
               <!-- Countdown -->
               <div class="detail-row countdown-row">
-                <span class="detail-label">Expires in</span>
+                <span class="detail-label">{{ t('crypto.expiresIn') }}</span>
                 <span class="detail-value countdown" :class="{ urgent: countdown < 300 }">
                   ⏱ {{ formatCountdown(countdown) }}
                 </span>
@@ -367,15 +369,14 @@ function goBack() {
               <!-- Status -->
               <div class="waiting-status">
                 <div class="pulse-dot"></div>
-                <span>Waiting for blockchain confirmation...</span>
+                <span>{{ t('crypto.waitingConfirmation') }}</span>
               </div>
             </div>
           </div>
 
           <div class="warning-box">
-            <strong>⚠ Important:</strong> Only send <strong>USDT</strong> on the
-            <strong>{{ chargeResult?.crypto?.network_display }}</strong> network.
-            Sending other tokens or using the wrong network may result in loss of funds.
+            <strong>{{ t('crypto.warningPrefix') }}</strong>
+            {{ t('crypto.warningText', { network: chargeResult?.crypto?.network_display }) }}
           </div>
         </div>
 
@@ -383,20 +384,20 @@ function goBack() {
         <div v-else-if="step === 'confirmed'" class="glass-card step-card">
           <div class="center-state">
             <div class="success-icon">✓</div>
-            <p class="status-title">Payment Confirmed!</p>
+            <p class="status-title">{{ t('crypto.paymentConfirmed') }}</p>
             <p class="status-desc">
-              Your order has been activated and your instance is being provisioned.
+              {{ t('crypto.confirmedDesc') }}
             </p>
             <div class="confirmed-actions">
               <button class="action-btn primary-btn" @click="goToInstances">
-                View My Instances →
+                {{ t('checkout.viewMyInstances') }}
               </button>
               <router-link
                 v-if="chargeResult?.invoice_id"
                 :to="'/invoices/' + chargeResult.invoice_id"
                 class="action-btn secondary-btn"
               >
-                View Invoice
+                {{ t('checkout.viewInvoice') }}
               </router-link>
             </div>
           </div>
@@ -406,10 +407,10 @@ function goBack() {
         <div v-else-if="step === 'failed'" class="glass-card step-card">
           <div class="center-state">
             <div class="fail-icon">✕</div>
-            <p class="status-title">Payment Failed</p>
+            <p class="status-title">{{ t('crypto.paymentFailed') }}</p>
             <p class="status-desc error-text">{{ payError }}</p>
             <button class="action-btn secondary-btn" @click="retryPayment">
-              ← Try Again
+              {{ t('crypto.tryAgain') }}
             </button>
           </div>
         </div>

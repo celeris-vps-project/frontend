@@ -92,6 +92,11 @@ function specLabel(inst) {
   return `${inst.cpu} vCPU / ${mem} RAM / ${inst.disk_gb}GB SSD`
 }
 
+function natEntryLabel(inst) {
+  if (!inst?.nat_port) return ''
+  return inst.host_ip ? `${inst.host_ip}:${inst.nat_port}` : `NAT :${inst.nat_port}`
+}
+
 function goToInstance(id) {
   router.push(`/instances/${id}`)
 }
@@ -217,8 +222,8 @@ function hasLiveState(id) {
             </div>
 
             <div v-if="inst.ipv4 || inst.ipv6 || inst.nat_port" class="instance-ip">
-              <span v-if="inst.ipv4" class="ip-tag">{{ inst.ipv4 }}</span>
-              <span v-if="inst.nat_port" class="ip-tag nat-tag">NAT :{{ inst.nat_port }}</span>
+              <span v-if="inst.ipv4" class="ip-tag" :class="{ 'guest-tag': inst.network_mode === 'nat' }">{{ inst.ipv4 }}</span>
+              <span v-if="inst.nat_port" class="ip-tag nat-tag">{{ natEntryLabel(inst) }}</span>
               <span v-if="inst.ipv6" class="ip-tag ipv6">{{ inst.ipv6 }}</span>
             </div>
 
@@ -572,6 +577,12 @@ function hasLiveState(id) {
   color: var(--info);
   background: var(--info-bg);
   border-color: var(--info-border);
+}
+
+.ip-tag.guest-tag {
+  color: var(--text-muted);
+  background: var(--surface-hover);
+  border-color: var(--border-color);
 }
 
 .ip-tag.nat-tag {
