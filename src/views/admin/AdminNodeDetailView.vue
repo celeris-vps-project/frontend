@@ -12,6 +12,7 @@ import {
   listAllProducts,
   enableHostNode,
   disableHostNode,
+  updateHostNodeNatEntry,
   revokeNodeToken,
   createNodeBootstrapToken,
   formatPercent,
@@ -145,6 +146,32 @@ async function handleEnqueueTask() {
 }
 
 const taskTypes = ['provision', 'deprovision', 'start', 'stop', 'reboot', 'suspend', 'unsuspend']
+
+// -- NAT entry host --
+const natEntryForm = ref('')
+const natEntryLoading = ref(false)
+const natEntryError = ref('')
+const natEntrySuccess = ref('')
+
+function beginEditNatEntryHost() {
+  natEntryForm.value = liveNode.value?.nat_entry_host || ''
+  natEntryError.value = ''
+  natEntrySuccess.value = ''
+}
+
+async function handleUpdateNatEntryHost() {
+  natEntryError.value = ''
+  natEntrySuccess.value = ''
+  natEntryLoading.value = true
+  try {
+    node.value = await updateHostNodeNatEntry(nodeID, String(natEntryForm.value || '').trim())
+    natEntrySuccess.value = t('adminNodeDetail.natEntrySaved')
+  } catch (err) {
+    natEntryError.value = err.message
+  } finally {
+    natEntryLoading.value = false
+  }
+}
 
 // -- Enable / Disable --
 const toggleLoading = ref(false)
@@ -313,6 +340,25 @@ function goToProduct(id) {
                 </span>
               </span>
             </div>
+          </div>
+
+          <div class="inline-form nat-entry-form">
+            <div class="form-row">
+              <label class="inline-label">{{ t('adminNodeDetail.natEntryHost') }}</label>
+              <input
+                v-model="natEntryForm"
+                type="text"
+                class="form-input"
+                placeholder="203.0.113.10"
+                @focus="beginEditNatEntryHost"
+              />
+              <button class="action-btn primary-btn small-btn" :disabled="natEntryLoading" @click="handleUpdateNatEntryHost">
+                {{ natEntryLoading ? t('common.loading') : t('common.save') }}
+              </button>
+            </div>
+            <p class="form-hint">{{ t('adminNodeDetail.natEntryHint') }}</p>
+            <p v-if="natEntryError" class="form-error">{{ natEntryError }}</p>
+            <p v-if="natEntrySuccess" class="form-success">{{ natEntrySuccess }}</p>
           </div>
 
           <div class="mgmt-actions">

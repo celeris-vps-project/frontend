@@ -59,6 +59,11 @@ export async function disableHostNode(id) {
   return res.data
 }
 
+export async function updateHostNodeNatEntry(id, natEntryHost) {
+  const res = await request('PUT', `/api/v1/admin/host-nodes/${id}/nat-entry`, { nat_entry_host: natEntryHost })
+  return res.data
+}
+
 export async function revokeNodeToken(id) {
   return await request('POST', `/api/v1/admin/host-nodes/${id}/revoke-token`)
 }
