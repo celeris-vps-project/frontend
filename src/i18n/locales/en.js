@@ -143,6 +143,7 @@ export default {
     natSharedIp: 'NAT Shared IP',
     dedicatedIp: 'Dedicated IP',
     natSshPort: 'NAT SSH Port',
+    natPorts: 'NAT Ports',
     primaryAccess: 'Primary Access',
     currentState: 'Current State',
     realtimeStatus: 'Realtime VPS Status',
@@ -638,6 +639,8 @@ export default {
     networkDedicatedDesc: 'Each instance gets its own dedicated public IP allocation.',
     networkNatTitle: 'NAT Shared IP',
     networkNatDesc: 'Instances share the host IP and are exposed through NAT port mapping.',
+    natPortCount: 'NAT Ports Per Instance',
+    natPortCountHint: 'Allocated as one contiguous port block for each new instance.',
     // Inventory
     inventory: 'Inventory',
     inventoryDesc: 'Set how many instances of this plan can be sold',

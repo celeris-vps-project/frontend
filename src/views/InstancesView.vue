@@ -51,7 +51,8 @@ const filteredInstances = computed(() => {
       inst.id.toLowerCase().includes(q) ||
       inst.hostname.toLowerCase().includes(q) ||
       inst.plan.toLowerCase().includes(q) ||
-      (inst.ipv4 && inst.ipv4.includes(q))
+      (inst.ipv4 && inst.ipv4.includes(q)) ||
+      natPorts(inst).some((port) => String(port).includes(q))
     )
   }
   return results
@@ -69,7 +70,7 @@ const fleetStats = computed(() => {
   const all = mergedInstances.value
   const running = all.filter((inst) => inst.status === 'running').length
   const pending = all.filter((inst) => inst.status === 'pending').length
-  const networkReady = all.filter((inst) => inst.ipv4 || inst.ipv6 || inst.nat_port).length
+  const networkReady = all.filter((inst) => inst.ipv4 || inst.ipv6 || hasNatPorts(inst)).length
   return {
     total: all.length,
     running,
@@ -92,9 +93,42 @@ function specLabel(inst) {
   return `${inst.cpu} vCPU / ${mem} RAM / ${inst.disk_gb}GB SSD`
 }
 
+function natPorts(inst) {
+  const values = Array.isArray(inst?.nat_ports) && inst.nat_ports.length > 0
+    ? inst.nat_ports
+    : (inst?.nat_port ? [inst.nat_port] : [])
+  return [...new Set(values.map(Number).filter((port) => Number.isInteger(port) && port > 0))]
+    .sort((a, b) => a - b)
+}
+
+function hasNatPorts(inst) {
+  return natPorts(inst).length > 0
+}
+
+function formatPortRange(ports) {
+  if (!ports.length) return ''
+  const ranges = []
+  let start = ports[0]
+  let prev = ports[0]
+  const pushRange = () => ranges.push(start === prev ? String(start) : `${start}-${prev}`)
+  for (let i = 1; i < ports.length; i++) {
+    if (ports[i] === prev + 1) {
+      prev = ports[i]
+      continue
+    }
+    pushRange()
+    start = ports[i]
+    prev = ports[i]
+  }
+  pushRange()
+  return ranges.join(', ')
+}
+
 function natEntryLabel(inst) {
-  if (!inst?.nat_port) return ''
-  return inst.host_ip ? `${inst.host_ip}:${inst.nat_port}` : `NAT :${inst.nat_port}`
+  const ports = natPorts(inst)
+  if (!ports.length) return ''
+  const label = formatPortRange(ports)
+  return inst.host_ip ? `${inst.host_ip}:${label}` : `NAT :${label}`
 }
 
 function goToInstance(id) {
@@ -221,9 +255,9 @@ function hasLiveState(id) {
               <span class="spec-tag">{{ inst.os }}</span>
             </div>
 
-            <div v-if="inst.ipv4 || inst.ipv6 || inst.nat_port" class="instance-ip">
+            <div v-if="inst.ipv4 || inst.ipv6 || hasNatPorts(inst)" class="instance-ip">
               <span v-if="inst.ipv4" class="ip-tag" :class="{ 'guest-tag': inst.network_mode === 'nat' }">{{ inst.ipv4 }}</span>
-              <span v-if="inst.nat_port" class="ip-tag nat-tag">{{ natEntryLabel(inst) }}</span>
+              <span v-if="hasNatPorts(inst)" class="ip-tag nat-tag">{{ natEntryLabel(inst) }}</span>
               <span v-if="inst.ipv6" class="ip-tag ipv6">{{ inst.ipv6 }}</span>
             </div>
 

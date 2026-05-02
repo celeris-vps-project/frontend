@@ -28,7 +28,7 @@ const priceSuccess = ref('')
 
 // Network mode edit
 const editingNetworkMode = ref(false)
-const networkModeForm = ref({ mode: 'dedicated' })
+const networkModeForm = ref({ mode: 'dedicated', natPortCount: 1 })
 const networkModeLoading = ref(false)
 const networkModeError = ref('')
 const networkModeSuccess = ref('')
@@ -104,6 +104,7 @@ async function savePrice() {
 
 function startEditNetworkMode() {
   networkModeForm.value.mode = product.value.network_mode || 'dedicated'
+  networkModeForm.value.natPortCount = natPortCount(product.value)
   networkModeError.value = ''
   networkModeSuccess.value = ''
   editingNetworkMode.value = true
@@ -114,8 +115,13 @@ async function saveNetworkMode() {
   networkModeSuccess.value = ''
   networkModeLoading.value = true
   try {
-    const updated = await updateProductNetworkMode(product.value.id, networkModeForm.value.mode)
+    const count = Number(networkModeForm.value.natPortCount)
+    if (networkModeForm.value.mode === 'nat' && (!Number.isInteger(count) || count < 1 || count > 1024)) {
+      throw new Error('NAT port count must be between 1 and 1024')
+    }
+    const updated = await updateProductNetworkMode(product.value.id, networkModeForm.value.mode, networkModeForm.value.mode === 'nat' ? count : 1)
     product.value.network_mode = updated.network_mode
+    product.value.nat_port_count = updated.nat_port_count || (networkModeForm.value.mode === 'nat' ? count : 1)
     networkModeSuccess.value = 'Network mode updated'
     editingNetworkMode.value = false
   } catch (err) {
@@ -180,6 +186,21 @@ function formatNetworkModeDesc(mode) {
   return mode === 'nat'
     ? 'Instances share the host public IP and access is exposed through NAT port mapping.'
     : 'Each instance is provisioned with its own dedicated public IP allocation.'
+}
+
+function natPortCount(target) {
+  const count = Number(target?.nat_port_count)
+  return Number.isInteger(count) && count > 0 ? count : 1
+}
+
+function natPortCountLabel(target) {
+  const count = natPortCount(target)
+  return `${count} ${count === 1 ? 'port' : 'ports'} per instance`
+}
+
+function networkPortCountValid() {
+  const count = Number(networkModeForm.value.natPortCount)
+  return networkModeForm.value.mode !== 'nat' || (Number.isInteger(count) && count >= 1 && count <= 1024)
 }
 </script>
 
@@ -252,6 +273,7 @@ function formatNetworkModeDesc(mode) {
               <span class="network-mode-inline" :class="product.network_mode === 'nat' ? 'nat' : 'dedicated'">
                 {{ formatNetworkMode(product.network_mode) }}
               </span>
+              <small v-if="product.network_mode === 'nat'" class="network-port-count-inline">{{ natPortCountLabel(product) }}</small>
             </span>
           </div>
         </div>
@@ -315,6 +337,7 @@ function formatNetworkModeDesc(mode) {
               <span class="network-mode-eyebrow">Current Mode</span>
               <strong>{{ formatNetworkMode(product.network_mode) }}</strong>
               <p>{{ formatNetworkModeDesc(product.network_mode) }}</p>
+              <span v-if="product.network_mode === 'nat'" class="network-port-count">{{ natPortCountLabel(product) }}</span>
             </div>
           </div>
 
@@ -349,10 +372,28 @@ function formatNetworkModeDesc(mode) {
               </button>
             </div>
 
+            <div v-if="networkModeForm.mode === 'nat'" class="nat-port-count-panel">
+              <div class="form-group">
+                <label>NAT Ports Per Instance</label>
+                <div class="stepper">
+                  <button type="button" class="stepper-btn" @click="networkModeForm.natPortCount = Math.max(1, networkModeForm.natPortCount - 1)">−</button>
+                  <input
+                    v-model.number="networkModeForm.natPortCount"
+                    type="number"
+                    min="1"
+                    max="1024"
+                    class="form-input stepper-input"
+                  />
+                  <button type="button" class="stepper-btn" @click="networkModeForm.natPortCount = Math.min(1024, networkModeForm.natPortCount + 1)">+</button>
+                </div>
+                <span class="form-hint-note">Allocated as one contiguous NAT port block for each new instance.</span>
+              </div>
+            </div>
+
             <div class="network-edit-actions">
               <button
                 class="action-btn primary-btn"
-                :disabled="networkModeLoading"
+                :disabled="networkModeLoading || !networkPortCountValid()"
                 @click="saveNetworkMode"
               >
                 {{ networkModeLoading ? 'Saving...' : 'Save Network' }}
@@ -807,6 +848,19 @@ function formatNetworkModeDesc(mode) {
   line-height: 1.5;
 }
 
+.network-port-count,
+.network-port-count-inline {
+  display: inline-flex;
+  margin-top: 0.55rem;
+  color: #fcd34d;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.network-port-count-inline {
+  margin-top: 0.4rem;
+}
+
 .network-mode-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -898,6 +952,14 @@ function formatNetworkModeDesc(mode) {
   display: flex;
   justify-content: flex-end;
   margin-top: 1rem;
+}
+
+.nat-port-count-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
 }
 
 /* Price Section */

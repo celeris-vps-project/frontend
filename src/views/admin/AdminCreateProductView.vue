@@ -20,6 +20,7 @@ const form = ref({
   slug: '',
   resource_pool_id: '',
   network_mode: 'dedicated',
+  nat_port_count: 1,
   cpu: 1,
   memory_mb: 1024,
   disk_gb: 25,
@@ -94,6 +95,9 @@ const priceInCents = computed(() => {
 })
 
 const formValid = computed(() => {
+  const natPortCount = Number(form.value.nat_port_count)
+  const natPortCountValid = form.value.network_mode !== 'nat'
+    || (Number.isInteger(natPortCount) && natPortCount >= 1 && natPortCount <= 1024)
   return form.value.name
     && form.value.slug
     && form.value.resource_pool_id
@@ -104,6 +108,7 @@ const formValid = computed(() => {
     && form.value.currency
     && form.value.billing_cycle
     && (unlimitedStock.value || form.value.total_slots >= 0)
+    && natPortCountValid
 })
 
 async function handleSubmit() {
@@ -119,6 +124,7 @@ async function handleSubmit() {
       region_id: pool ? pool.region_id : '',
       resource_pool_id: form.value.resource_pool_id,
       network_mode: form.value.network_mode,
+      nat_port_count: form.value.network_mode === 'nat' ? Number(form.value.nat_port_count) : 1,
       cpu: Number(form.value.cpu),
       memory_mb: Number(form.value.memory_mb),
       disk_gb: Number(form.value.disk_gb),
@@ -221,7 +227,7 @@ async function handleSubmit() {
             <div class="spec-pill"><strong>{{ form.disk_gb }} GB</strong> Disk</div>
             <div class="spec-pill network-pill">
               <strong>{{ form.network_mode === 'nat' ? 'NAT' : 'Dedicated' }}</strong>
-              {{ form.network_mode === 'nat' ? 'Shared IP' : 'Public IP' }}
+              {{ form.network_mode === 'nat' ? `${form.nat_port_count} Ports` : 'Public IP' }}
             </div>
             <div class="spec-pill"><strong>{{ form.bandwidth_gb || '∞' }}</strong> {{ form.bandwidth_gb ? 'GB BW' : 'Bandwidth' }}</div>
           </div>
@@ -251,6 +257,18 @@ async function handleSubmit() {
                 {{ option.value === 'nat' ? t('adminCreateProduct.networkNatDesc') : t('adminCreateProduct.networkDedicatedDesc') }}
               </p>
             </button>
+          </div>
+
+          <div v-if="form.network_mode === 'nat'" class="nat-port-count-panel">
+            <div class="form-group">
+              <label>{{ t('adminCreateProduct.natPortCount') }}</label>
+              <div class="stepper">
+                <button type="button" class="stepper-btn" @click="form.nat_port_count = Math.max(1, form.nat_port_count - 1)">−</button>
+                <input v-model.number="form.nat_port_count" type="number" min="1" max="1024" class="form-input stepper-input" />
+                <button type="button" class="stepper-btn" @click="form.nat_port_count = Math.min(1024, form.nat_port_count + 1)">+</button>
+              </div>
+              <span class="form-hint">{{ t('adminCreateProduct.natPortCountHint') }}</span>
+            </div>
           </div>
         </section>
 
@@ -645,6 +663,14 @@ async function handleSubmit() {
   font-size: 0.82rem;
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+.nat-port-count-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
 }
 
 /* Price input */

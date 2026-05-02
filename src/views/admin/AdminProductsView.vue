@@ -76,6 +76,11 @@ function formatNetworkMode(mode) {
   return mode === 'nat' ? t('adminProducts.networkNat') : t('adminProducts.networkDedicated')
 }
 
+function natPortCount(product) {
+  const count = Number(product?.nat_port_count)
+  return Number.isInteger(count) && count > 0 ? count : 1
+}
+
 async function toggleEnabled(product) {
   try {
     if (product.enabled) {
@@ -169,6 +174,9 @@ function goToProduct(id) {
               <div class="product-meta-row">
                 <span class="network-badge" :class="product.network_mode === 'nat' ? 'nat' : 'dedicated'">
                   {{ formatNetworkMode(product.network_mode) }}
+                </span>
+                <span v-if="product.network_mode === 'nat'" class="network-badge nat-count">
+                  NAT x{{ natPortCount(product) }}
                 </span>
               </div>
               <span v-if="product.location" class="product-location">📍 {{ product.location }}</span>
@@ -421,6 +429,12 @@ function goToProduct(id) {
   color: #fcd34d;
   background: rgba(251, 191, 36, 0.12);
   border-color: rgba(251, 191, 36, 0.22);
+}
+
+.network-badge.nat-count {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
 }
 
 .product-status-col {

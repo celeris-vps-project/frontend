@@ -94,12 +94,78 @@ function networkModeLabel(inst) {
   return inst.network_mode === 'nat' ? t('instanceDetail.natSharedIp') : t('instanceDetail.dedicatedIp')
 }
 
+function normalizePorts(values) {
+  return [...new Set((values || []).map(Number).filter((port) => Number.isInteger(port) && port > 0))]
+    .sort((a, b) => a - b)
+}
+
+function natPortMappings(inst) {
+  if (!inst) return []
+  if (Array.isArray(inst.nat_port_mappings) && inst.nat_port_mappings.length > 0) {
+    return inst.nat_port_mappings
+      .map((mapping) => ({
+        host_port: Number(mapping.host_port),
+        guest_port: Number(mapping.guest_port),
+        protocol: mapping.protocol || 'tcp'
+      }))
+      .filter((mapping) => Number.isInteger(mapping.host_port) && mapping.host_port > 0)
+  }
+  const ports = normalizePorts(Array.isArray(inst.nat_ports) && inst.nat_ports.length > 0 ? inst.nat_ports : [])
+  if (ports.length > 0) {
+    return ports.map((port, index) => ({
+      host_port: port,
+      guest_port: index === 0 ? 22 : port,
+      protocol: 'tcp'
+    }))
+  }
+  if (inst.nat_port) {
+    return [{ host_port: Number(inst.nat_port), guest_port: 22, protocol: 'tcp' }]
+  }
+  return []
+}
+
+function natPorts(inst) {
+  return normalizePorts(natPortMappings(inst).map((mapping) => mapping.host_port))
+}
+
+function formatPortRange(ports) {
+  if (!ports.length) return ''
+  const ranges = []
+  let start = ports[0]
+  let prev = ports[0]
+  const pushRange = () => ranges.push(start === prev ? String(start) : `${start}-${prev}`)
+  for (let i = 1; i < ports.length; i++) {
+    if (ports[i] === prev + 1) {
+      prev = ports[i]
+      continue
+    }
+    pushRange()
+    start = ports[i]
+    prev = ports[i]
+  }
+  pushRange()
+  return ranges.join(', ')
+}
+
+function natAccessLabel(inst) {
+  const ports = natPorts(inst)
+  if (!ports.length) return ''
+  const label = formatPortRange(ports)
+  if (inst.host_ip) return `${inst.host_ip}:${label}`
+  return `NAT :${label}`
+}
+
+function natSshPort(inst) {
+  const mappings = natPortMappings(inst)
+  return mappings.find((mapping) => mapping.guest_port === 22)?.host_port || mappings[0]?.host_port || 0
+}
+
 function primaryAccess(inst) {
   if (!inst) return t('instanceDetail.waitingForNetwork')
   if (inst.network_mode === 'nat') {
-    if (inst.host_ip && inst.nat_port) return `${inst.host_ip}:${inst.nat_port}`
+    const label = natAccessLabel(inst)
+    if (label) return label
     if (inst.host_ip) return inst.host_ip
-    if (inst.nat_port) return `NAT :${inst.nat_port}`
     return t('instanceDetail.waitingForNetwork')
   }
   if (inst.ipv4) return inst.ipv4
@@ -109,9 +175,10 @@ function primaryAccess(inst) {
 
 function sshCommand(inst) {
   if (!inst) return ''
-  if (inst.network_mode === 'nat' && inst.nat_port) {
+  const sshPort = natSshPort(inst)
+  if (inst.network_mode === 'nat' && sshPort) {
     if (!inst.host_ip) return ''
-    return `ssh root@${inst.host_ip} -p ${inst.nat_port}`
+    return `ssh root@${inst.host_ip} -p ${sshPort}`
   }
   if (!inst.ipv4) return ''
   return `ssh root@${inst.ipv4}`
@@ -308,7 +375,7 @@ function statusCopy(inst) {
                     <span class="config-value">{{ networkModeLabel(liveInstance) }}</span>
                   </div>
                 </div>
-                <div v-if="liveInstance.network_mode === 'nat' && liveInstance.nat_port" class="config-item">
+                <div v-if="liveInstance.network_mode === 'nat' && natPorts(liveInstance).length" class="config-item">
                   <div class="config-icon-wrap nat">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <rect x="4" y="4" width="16" height="16" rx="2"></rect>
@@ -316,8 +383,8 @@ function statusCopy(inst) {
                     </svg>
                   </div>
                   <div class="config-detail">
-                    <span class="config-label">{{ t('instanceDetail.natSshPort') }}</span>
-                    <span class="config-value mono">:{{ liveInstance.nat_port }}</span>
+                    <span class="config-label">{{ t('instanceDetail.natPorts') }}</span>
+                    <span class="config-value mono">:{{ formatPortRange(natPorts(liveInstance)) }}</span>
                   </div>
                 </div>
                 <div v-if="liveInstance.network_mode === 'nat' && liveInstance.host_ip" class="config-item">

@@ -216,8 +216,11 @@ export async function updateProductPrice(id, price) {
   return res.data
 }
 
-export async function updateProductNetworkMode(id, networkMode) {
-  const res = await request('PUT', `/api/v1/admin/products/${id}/network`, { network_mode: networkMode })
+export async function updateProductNetworkMode(id, networkMode, natPortCount = 1) {
+  const res = await request('PUT', `/api/v1/admin/products/${id}/network`, {
+    network_mode: networkMode,
+    nat_port_count: Number(natPortCount)
+  })
   return res.data
 }
 
