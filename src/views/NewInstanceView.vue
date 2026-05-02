@@ -87,11 +87,13 @@ function lineDisplay(lineID) {
 function selectLine(lineID) {
   selectedLine.value = lineID
   selectedProduct.value = null
+  form.hostname = ''
   step.value = 2
 }
 
 function selectSpec(product) {
   selectedProduct.value = product
+  generateHostname()
   step.value = 3
 }
 
@@ -103,6 +105,7 @@ function goBackToLines() {
 
 function goBackToSpecs() {
   selectedProduct.value = null
+  form.hostname = ''
   step.value = 2
 }
 
@@ -144,6 +147,10 @@ function formatPrice(cents, currency) {
 function formatCycleShort(cycle) {
   const map = { monthly: '/mo', quarterly: '/qtr', annually: '/yr' }
   return map[cycle] || `/${cycle}`
+}
+
+function generateHostname() {
+  form.hostname = `vps-${Math.random().toString(36).slice(2, 8)}`
 }
 
 // ── Submit ──
@@ -312,7 +319,12 @@ async function handleSubmit() {
             <div class="form-row">
               <div class="form-group">
                 <label>Hostname</label>
-                <input v-model="form.hostname" type="text" placeholder="e.g. web-prod-01" required />
+                <div class="hostname-control">
+                  <span class="hostname-display mono">{{ form.hostname || '—' }}</span>
+                  <button class="action-btn secondary-btn small-btn hostname-generate-btn" type="button" @click="generateHostname">
+                    Generate
+                  </button>
+                </div>
               </div>
               <div class="form-group">
                 <label>Operating System</label>
@@ -749,6 +761,30 @@ async function handleSubmit() {
   color: var(--text-primary);
   font-size: 0.875rem;
   transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.hostname-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hostname-display {
+  flex: 1;
+  min-height: 39px;
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.hostname-generate-btn {
+  min-height: 39px;
+  flex-shrink: 0;
 }
 
 .form-group input:focus,

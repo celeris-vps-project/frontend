@@ -34,7 +34,7 @@ export async function checkout(productId, hostname, os) {
         headers: authHeaders(),
         body: JSON.stringify({
             product_id: productId,
-            hostname: hostname || 'vps-' + productId,
+            hostname,
             os: os || 'ubuntu-22.04'
         })
     })
