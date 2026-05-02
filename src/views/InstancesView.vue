@@ -112,7 +112,7 @@ function hasLiveState(id) {
         <div class="header-actions">
           <div class="sync-pill" :class="{ offline: !connected }">
             <span class="sync-dot"></span>
-            <span>{{ connected ? 'WebSocket Live' : 'Live Sync Reconnecting' }}</span>
+            <span>{{ connected ? t('instances.websocketLive') : t('instances.liveSyncReconnecting') }}</span>
           </div>
           <router-link to="/instances/new" class="action-btn primary-btn small-btn">
             {{ t('instances.newInstance') }}
@@ -124,28 +124,28 @@ function hasLiveState(id) {
         <div class="stat-card glass-card">
           <div class="stat-icon total-icon"></div>
           <div class="stat-content">
-            <span class="stat-label">Total VPS</span>
+            <span class="stat-label">{{ t('instances.totalVps') }}</span>
             <span class="stat-value">{{ fleetStats.total }}</span>
           </div>
         </div>
         <div class="stat-card glass-card">
           <div class="stat-icon running-icon"></div>
           <div class="stat-content">
-            <span class="stat-label">Running</span>
+            <span class="stat-label">{{ t('instances.running') }}</span>
             <span class="stat-value">{{ fleetStats.running }}</span>
           </div>
         </div>
         <div class="stat-card glass-card">
           <div class="stat-icon pending-icon"></div>
           <div class="stat-content">
-            <span class="stat-label">Provisioning</span>
+            <span class="stat-label">{{ t('instances.pending') }}</span>
             <span class="stat-value">{{ fleetStats.pending }}</span>
           </div>
         </div>
         <div class="stat-card glass-card">
           <div class="stat-icon network-icon"></div>
           <div class="stat-content">
-            <span class="stat-label">Network Ready</span>
+            <span class="stat-label">{{ t('instances.networkReady') }}</span>
             <span class="stat-value">{{ fleetStats.networkReady }}</span>
           </div>
         </div>
@@ -202,7 +202,7 @@ function hasLiveState(id) {
             <div class="instance-id-col">
               <div class="instance-hostname-row">
                 <span class="instance-hostname">{{ inst.hostname }}</span>
-                <span v-if="hasLiveState(inst.id)" class="live-chip">LIVE</span>
+                <span v-if="hasLiveState(inst.id)" class="live-chip">{{ t('instances.live') }}</span>
               </div>
               <span class="instance-hash">#{{ inst.id.slice(0, 8) }}</span>
             </div>
@@ -224,7 +224,7 @@ function hasLiveState(id) {
 
             <div v-if="inst.status === 'pending'" class="provisioning-hint">
               <span class="provisioning-dot"></span>
-              <span>Provisioning is in progress</span>
+              <span>{{ t('instances.provisioningInProgress') }}</span>
             </div>
           </div>
 

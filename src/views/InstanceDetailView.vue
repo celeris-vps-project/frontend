@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import {
@@ -16,6 +17,7 @@ import { useInstanceStatusWS } from '../api/ws'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const instance = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -46,13 +48,13 @@ const liveInstance = computed(() => {
   return ws ? { ...instance.value, ...ws } : instance.value
 })
 
-async function doAction(actionFn, label) {
-  actionLoading.value = label
+async function doAction(actionFn, actionKey) {
+  actionLoading.value = actionKey
   actionError.value = ''
   actionSuccess.value = ''
   try {
     instance.value = await actionFn(route.params.id)
-    actionSuccess.value = `${label} request submitted`
+    actionSuccess.value = t(`instanceDetail.${actionKey}Submitted`)
     showTerminateConfirm.value = false
   } catch (err) {
     actionError.value = err.message
@@ -73,11 +75,11 @@ const canTerminate = computed(() => liveInstance.value && liveInstance.value.sta
 const timelineRows = computed(() => {
   if (!liveInstance.value) return []
   return [
-    { key: 'created', label: 'Created', value: liveInstance.value.created_at, tone: 'created' },
-    { key: 'started', label: 'Started', value: liveInstance.value.started_at, tone: 'running' },
-    { key: 'stopped', label: 'Stopped', value: liveInstance.value.stopped_at, tone: 'stopped' },
-    { key: 'suspended', label: 'Suspended', value: liveInstance.value.suspended_at, tone: 'suspended' },
-    { key: 'terminated', label: 'Terminated', value: liveInstance.value.terminated_at, tone: 'terminated' },
+    { key: 'created', label: t('instanceDetail.created'), value: liveInstance.value.created_at, tone: 'created' },
+    { key: 'started', label: t('instanceDetail.started'), value: liveInstance.value.started_at, tone: 'running' },
+    { key: 'stopped', label: t('instanceDetail.stoppedAt'), value: liveInstance.value.stopped_at, tone: 'stopped' },
+    { key: 'suspended', label: t('instanceDetail.suspendedAt'), value: liveInstance.value.suspended_at, tone: 'suspended' },
+    { key: 'terminated', label: t('instanceDetail.terminatedAt'), value: liveInstance.value.terminated_at, tone: 'terminated' },
   ].filter((row) => Boolean(row.value))
 })
 
@@ -88,73 +90,58 @@ function specLabel(inst) {
 }
 
 function networkModeLabel(inst) {
-  if (!inst) return 'Unknown'
-  return inst.network_mode === 'nat' ? 'NAT Shared IP' : 'Dedicated IP'
+  if (!inst) return t('common.unknown')
+  return inst.network_mode === 'nat' ? t('instanceDetail.natSharedIp') : t('instanceDetail.dedicatedIp')
 }
 
 function primaryAccess(inst) {
-  if (!inst) return 'Waiting for network'
-  if (inst.ipv4) {
-    return inst.network_mode === 'nat' && inst.nat_port ? `${inst.ipv4}:${inst.nat_port}` : inst.ipv4
+  if (!inst) return t('instanceDetail.waitingForNetwork')
+  if (inst.network_mode === 'nat') {
+    if (inst.host_ip && inst.nat_port) return `${inst.host_ip}:${inst.nat_port}`
+    if (inst.host_ip) return inst.host_ip
+    if (inst.nat_port) return `NAT :${inst.nat_port}`
+    return t('instanceDetail.waitingForNetwork')
   }
+  if (inst.ipv4) return inst.ipv4
   if (inst.ipv6) return inst.ipv6
-  if (inst.nat_port) return `NAT :${inst.nat_port}`
-  return 'Waiting for network'
+  return t('instanceDetail.waitingForNetwork')
 }
 
 function sshCommand(inst) {
-  if (!inst?.ipv4) return ''
+  if (!inst) return ''
   if (inst.network_mode === 'nat' && inst.nat_port) {
-    return `ssh root@${inst.ipv4} -p ${inst.nat_port}`
+    if (!inst.host_ip) return ''
+    return `ssh root@${inst.host_ip} -p ${inst.nat_port}`
   }
+  if (!inst.ipv4) return ''
   return `ssh root@${inst.ipv4}`
 }
 
 function statusHeadline(status) {
-  switch (status) {
-    case 'running':
-      return 'Instance is online'
-    case 'stopped':
-      return 'Instance is powered off'
-    case 'suspended':
-      return 'Instance is suspended'
-    case 'terminated':
-      return 'Instance has been terminated'
-    default:
-      return 'Provisioning in progress'
-  }
+  const key = ['running', 'stopped', 'suspended', 'terminated'].includes(status) ? status : 'pending'
+  return t(`instanceDetail.statusHeadline.${key}`)
 }
 
 function statusCopy(inst) {
   if (!inst) return ''
-  switch (inst.status) {
-    case 'running':
-      return 'The VM is running and can be reached with the current network details below.'
-    case 'stopped':
-      return 'You can start the VM again at any time from the control panel.'
-    case 'suspended':
-      return 'Resources are paused until the instance is resumed.'
-    case 'terminated':
-      return 'This VPS is no longer available for start, stop, or suspend actions.'
-    default:
-      return 'The platform is still allocating resources and waiting for the node to confirm boot.'
-  }
+  const key = ['running', 'stopped', 'suspended', 'terminated'].includes(inst.status) ? inst.status : 'pending'
+  return t(`instanceDetail.statusCopy.${key}`)
 }
 </script>
 
 <template>
   <AppLayout>
     <div class="detail-page">
-      <button class="back-btn" @click="router.push('/instances')">Back to instances</button>
+      <button class="back-btn" @click="router.push('/instances')">{{ t('instanceDetail.backToList') }}</button>
 
       <div v-if="loading" class="loading-state glass-card">
         <div class="spinner"></div>
-        <span>Loading instance...</span>
+        <span>{{ t('instanceDetail.loadingInstance') }}</span>
       </div>
 
       <div v-else-if="error" class="error-state glass-card">
         <p>{{ error }}</p>
-        <button class="action-btn secondary-btn small-btn" @click="fetchInstance">Retry</button>
+        <button class="action-btn secondary-btn small-btn" @click="fetchInstance">{{ t('common.retry') }}</button>
       </div>
 
       <template v-else-if="liveInstance">
@@ -171,7 +158,7 @@ function statusCopy(inst) {
             <span class="meta-plan">{{ liveInstance.plan }}</span>
             <span class="ws-pill" :class="{ offline: !connected }">
               <span class="ws-pill-dot"></span>
-              {{ connected ? 'WS Connected' : 'WS Reconnecting' }}
+              {{ connected ? t('instanceDetail.wsConnected') : t('instanceDetail.wsReconnecting') }}
             </span>
           </div>
         </div>
@@ -185,29 +172,29 @@ function statusCopy(inst) {
 
         <section class="status-hero glass-card">
           <div class="status-copy">
-            <span class="eyebrow">Realtime VPS Status</span>
+            <span class="eyebrow">{{ t('instanceDetail.realtimeStatus') }}</span>
             <h2>{{ statusHeadline(liveInstance.status) }}</h2>
             <p>{{ statusCopy(liveInstance) }}</p>
           </div>
 
           <div class="status-grid">
             <div class="status-card">
-              <span class="status-label">Current State</span>
+              <span class="status-label">{{ t('instanceDetail.currentState') }}</span>
               <div class="status-value-row">
                 <StatusBadge :status="liveInstance.status" />
               </div>
             </div>
             <div class="status-card">
-              <span class="status-label">Primary Access</span>
+              <span class="status-label">{{ t('instanceDetail.primaryAccess') }}</span>
               <span class="status-value mono">{{ primaryAccess(liveInstance) }}</span>
             </div>
             <div class="status-card">
-              <span class="status-label">Network Mode</span>
+              <span class="status-label">{{ t('instanceDetail.networkMode') }}</span>
               <span class="status-value">{{ networkModeLabel(liveInstance) }}</span>
             </div>
             <div class="status-card">
-              <span class="status-label">Realtime Channel</span>
-              <span class="status-value">{{ connected ? 'Live updates enabled' : 'Retrying WebSocket connection' }}</span>
+              <span class="status-label">{{ t('instanceDetail.realtimeChannel') }}</span>
+              <span class="status-value">{{ connected ? t('instanceDetail.liveUpdatesEnabled') : t('instanceDetail.retryingWs') }}</span>
             </div>
           </div>
         </section>
@@ -215,15 +202,15 @@ function statusCopy(inst) {
         <div v-if="liveInstance.status === 'pending'" class="provisioning-banner glass-card">
           <div class="spinner-sm"></div>
           <div class="provisioning-text">
-            <strong>Provisioning is still running</strong>
-            <p>The page listens for WebSocket updates and will refresh the VPS status as soon as the node reports back.</p>
+            <strong>{{ t('instanceDetail.provisioningRunning') }}</strong>
+            <p>{{ t('instanceDetail.provisioningCopy') }}</p>
           </div>
         </div>
 
         <div class="detail-grid">
           <div class="detail-main">
             <section class="config-section glass-card">
-              <h2>Configuration</h2>
+              <h2>{{ t('instanceDetail.configuration') }}</h2>
               <div class="config-grid">
                 <div class="config-item">
                   <div class="config-icon-wrap">
@@ -233,7 +220,7 @@ function statusCopy(inst) {
                     </svg>
                   </div>
                   <div class="config-detail">
-                    <span class="config-label">Plan</span>
+                    <span class="config-label">{{ t('instanceDetail.plan') }}</span>
                     <span class="config-value">{{ liveInstance.plan }}</span>
                   </div>
                 </div>
@@ -246,7 +233,7 @@ function statusCopy(inst) {
                     </svg>
                   </div>
                   <div class="config-detail">
-                    <span class="config-label">Spec</span>
+                    <span class="config-label">{{ t('instanceDetail.specs') }}</span>
                     <span class="config-value">{{ specLabel(liveInstance) }}</span>
                   </div>
                 </div>
@@ -259,7 +246,7 @@ function statusCopy(inst) {
                     </svg>
                   </div>
                   <div class="config-detail">
-                    <span class="config-label">OS</span>
+                    <span class="config-label">{{ t('instanceDetail.os') }}</span>
                     <span class="config-value">{{ liveInstance.os }}</span>
                   </div>
                 </div>
@@ -272,7 +259,7 @@ function statusCopy(inst) {
                     </svg>
                   </div>
                   <div class="config-detail">
-                    <span class="config-label">Hostname</span>
+                    <span class="config-label">{{ t('instanceDetail.hostname') }}</span>
                     <span class="config-value mono">{{ liveInstance.hostname }}</span>
                   </div>
                 </div>
@@ -280,7 +267,7 @@ function statusCopy(inst) {
             </section>
 
             <section class="config-section glass-card">
-              <h2>Network</h2>
+              <h2>{{ t('instanceDetail.network') }}</h2>
               <div class="config-grid">
                 <div class="config-item">
                   <div class="config-icon-wrap success">
@@ -292,8 +279,8 @@ function statusCopy(inst) {
                     </svg>
                   </div>
                   <div class="config-detail">
-                    <span class="config-label">IPv4</span>
-                    <span class="config-value mono">{{ liveInstance.ipv4 || 'Waiting for assignment' }}</span>
+                    <span class="config-label">{{ liveInstance.network_mode === 'nat' ? t('instanceDetail.guestIPv4') : t('instanceDetail.ipv4') }}</span>
+                    <span class="config-value mono">{{ liveInstance.ipv4 || t('instanceDetail.waitingAssignment') }}</span>
                   </div>
                 </div>
                 <div class="config-item">
@@ -306,8 +293,8 @@ function statusCopy(inst) {
                     </svg>
                   </div>
                   <div class="config-detail">
-                    <span class="config-label">IPv6</span>
-                    <span class="config-value mono">{{ liveInstance.ipv6 || 'Waiting for assignment' }}</span>
+                    <span class="config-label">{{ t('instanceDetail.ipv6') }}</span>
+                    <span class="config-value mono">{{ liveInstance.ipv6 || t('instanceDetail.waitingAssignment') }}</span>
                   </div>
                 </div>
                 <div class="config-item">
@@ -317,7 +304,7 @@ function statusCopy(inst) {
                     </svg>
                   </div>
                   <div class="config-detail">
-                    <span class="config-label">Mode</span>
+                    <span class="config-label">{{ t('instanceDetail.mode') }}</span>
                     <span class="config-value">{{ networkModeLabel(liveInstance) }}</span>
                   </div>
                 </div>
@@ -329,20 +316,44 @@ function statusCopy(inst) {
                     </svg>
                   </div>
                   <div class="config-detail">
-                    <span class="config-label">NAT SSH Port</span>
+                    <span class="config-label">{{ t('instanceDetail.natSshPort') }}</span>
                     <span class="config-value mono">:{{ liveInstance.nat_port }}</span>
+                  </div>
+                </div>
+                <div v-if="liveInstance.network_mode === 'nat' && liveInstance.host_ip" class="config-item">
+                  <div class="config-icon-wrap info">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 12h16"></path>
+                      <path d="M12 4v16"></path>
+                    </svg>
+                  </div>
+                  <div class="config-detail">
+                    <span class="config-label">{{ t('instanceDetail.hostIp') }}</span>
+                    <span class="config-value mono">{{ liveInstance.host_ip }}</span>
+                  </div>
+                </div>
+                <div v-if="liveInstance.initial_password" class="config-item">
+                  <div class="config-icon-wrap credential">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                  </div>
+                  <div class="config-detail">
+                    <span class="config-label">{{ t('instanceDetail.initialPassword') }}</span>
+                    <span class="config-value mono secret-value">{{ liveInstance.initial_password }}</span>
                   </div>
                 </div>
               </div>
 
               <div v-if="sshCommand(liveInstance)" class="ssh-command-box">
-                <span class="ssh-label">SSH Command</span>
+                <span class="ssh-label">{{ t('instanceDetail.sshCommand') }}</span>
                 <code class="ssh-cmd">{{ sshCommand(liveInstance) }}</code>
               </div>
             </section>
 
             <section class="config-section glass-card">
-              <h2>Timeline</h2>
+              <h2>{{ t('instanceDetail.timeline') }}</h2>
               <div class="timeline">
                 <div v-for="row in timelineRows" :key="row.key" class="timeline-item">
                   <div class="tl-dot" :class="row.tone"></div>
@@ -357,76 +368,76 @@ function statusCopy(inst) {
 
           <div class="detail-sidebar">
             <section class="actions-card glass-card">
-              <h3>Power Controls</h3>
+              <h3>{{ t('instanceDetail.powerControl') }}</h3>
               <div class="power-btns">
                 <button
                   v-if="canStart"
                   class="action-btn success-btn"
                   :disabled="actionLoading !== ''"
-                  @click="doAction(startInstance, 'Start')"
+                  @click="doAction(startInstance, 'start')"
                 >
-                  {{ actionLoading === 'Start' ? 'Starting...' : 'Start Instance' }}
+                  {{ actionLoading === 'start' ? t('instanceDetail.starting') : t('instanceDetail.start') }}
                 </button>
                 <button
                   v-if="canStop"
                   class="action-btn warning-btn"
                   :disabled="actionLoading !== ''"
-                  @click="doAction(stopInstance, 'Stop')"
+                  @click="doAction(stopInstance, 'stop')"
                 >
-                  {{ actionLoading === 'Stop' ? 'Stopping...' : 'Stop Instance' }}
+                  {{ actionLoading === 'stop' ? t('instanceDetail.stopping') : t('instanceDetail.stop') }}
                 </button>
                 <button
                   v-if="canSuspend"
                   class="action-btn secondary-btn"
                   :disabled="actionLoading !== ''"
-                  @click="doAction(suspendInstance, 'Suspend')"
+                  @click="doAction(suspendInstance, 'suspend')"
                 >
-                  {{ actionLoading === 'Suspend' ? 'Suspending...' : 'Suspend Instance' }}
+                  {{ actionLoading === 'suspend' ? t('instanceDetail.suspending') : t('instanceDetail.suspend') }}
                 </button>
                 <button
                   v-if="canUnsuspend"
                   class="action-btn success-btn"
                   :disabled="actionLoading !== ''"
-                  @click="doAction(unsuspendInstance, 'Unsuspend')"
+                  @click="doAction(unsuspendInstance, 'unsuspend')"
                 >
-                  {{ actionLoading === 'Unsuspend' ? 'Resuming...' : 'Resume Instance' }}
+                  {{ actionLoading === 'unsuspend' ? t('instanceDetail.unsuspending') : t('instanceDetail.unsuspend') }}
                 </button>
               </div>
 
               <div v-if="canTerminate" class="terminate-section">
                 <button class="action-btn danger-btn" @click="showTerminateConfirm = !showTerminateConfirm">
-                  Terminate Instance
+                  {{ t('instanceDetail.terminateInstance') }}
                 </button>
                 <div v-if="showTerminateConfirm" class="confirm-box">
-                  <p class="confirm-text">This operation is permanent and cannot be undone.</p>
+                  <p class="confirm-text">{{ t('instanceDetail.terminateWarning') }}</p>
                   <button
                     class="action-btn danger-btn small-btn"
                     :disabled="actionLoading !== ''"
-                    @click="doAction(terminateInstance, 'Terminate')"
+                    @click="doAction(terminateInstance, 'terminate')"
                   >
-                    {{ actionLoading === 'Terminate' ? 'Terminating...' : 'Confirm Termination' }}
+                    {{ actionLoading === 'terminate' ? t('instanceDetail.terminating') : t('instanceDetail.confirmTerminate') }}
                   </button>
                 </div>
               </div>
             </section>
 
             <section class="info-card glass-card">
-              <h3>Details</h3>
+              <h3>{{ t('instanceDetail.details') }}</h3>
               <dl class="detail-list">
                 <div class="dl-row">
-                  <dt>Instance ID</dt>
+                  <dt>{{ t('instanceDetail.instanceId') }}</dt>
                   <dd class="mono">{{ liveInstance.id }}</dd>
                 </div>
                 <div class="dl-row">
-                  <dt>Order ID</dt>
+                  <dt>{{ t('instanceDetail.orderId') }}</dt>
                   <dd class="mono">{{ liveInstance.order_id }}</dd>
                 </div>
                 <div class="dl-row">
-                  <dt>Node ID</dt>
-                  <dd class="mono">{{ liveInstance.node_id || 'Pending assignment' }}</dd>
+                  <dt>{{ t('instanceDetail.nodeId') }}</dt>
+                  <dd class="mono">{{ liveInstance.node_id || t('instanceDetail.pendingAssignment') }}</dd>
                 </div>
                 <div class="dl-row">
-                  <dt>Created At</dt>
+                  <dt>{{ t('instanceDetail.createdAt') }}</dt>
                   <dd>{{ formatDateTime(liveInstance.created_at) }}</dd>
                 </div>
               </dl>
@@ -729,6 +740,12 @@ function statusCopy(inst) {
   border-color: rgba(168, 85, 247, 0.2);
 }
 
+.config-icon-wrap.credential {
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--warning);
+  border-color: var(--warning-border);
+}
+
 .config-detail {
   display: flex;
   flex-direction: column;
@@ -746,6 +763,11 @@ function statusCopy(inst) {
   font-size: 0.88rem;
   color: var(--text-primary);
   font-weight: 500;
+}
+
+.secret-value {
+  user-select: all;
+  word-break: break-all;
 }
 
 .ssh-command-box {
