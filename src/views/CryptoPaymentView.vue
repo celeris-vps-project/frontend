@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import QRCode from 'qrcode'
@@ -17,6 +17,7 @@ const orderID = route.params.id
 const order = ref(null)
 const networks = ref([])
 const selectedNetwork = ref('')
+const couponCode = ref(typeof route.query.coupon_code === 'string' ? route.query.coupon_code : '')
 const loading = ref(true)
 const loadError = ref('')
 
@@ -37,6 +38,8 @@ const networkMeta = {
   bsc:      { icon: '💛', color: '#f0b90b', label: 'BSC' },
   polygon:  { icon: '💜', color: '#8247e5', label: 'Polygon' },
 }
+
+const normalizedCouponCode = computed(() => couponCode.value.trim())
 
 // ── Load data on mount ──
 onMounted(async () => {
@@ -79,13 +82,19 @@ function selectedNetworkInfo() {
 
 // ── Pay button ──
 async function handlePay() {
-  if (!selectedNetwork.value) return
+  if (!selectedNetwork.value && !normalizedCouponCode.value) return
   payError.value = ''
   step.value = 'paying'
 
   try {
-    const result = await initiatePayment(orderID, selectedNetwork.value)
+    const result = await initiatePayment(orderID, selectedNetwork.value, null, normalizedCouponCode.value)
     chargeResult.value = result
+
+    if (result.status === 'success' || result.payable_amount === 0) {
+      order.value = { ...order.value, status: 'active' }
+      step.value = 'confirmed'
+      return
+    }
 
     if (result.crypto) {
       // Generate QR code
@@ -261,6 +270,29 @@ function goBack() {
             <p class="step-desc">{{ t('crypto.selectNetworkDesc') }}</p>
           </div>
 
+          <div class="coupon-box">
+            <label class="coupon-label" for="crypto-coupon-code">{{ t('checkout.activationCode') }}</label>
+            <div class="coupon-control">
+              <input
+                id="crypto-coupon-code"
+                v-model="couponCode"
+                type="text"
+                class="coupon-input"
+                :placeholder="t('checkout.activationCodePlaceholder')"
+                autocomplete="off"
+              />
+              <button
+                v-if="couponCode"
+                type="button"
+                class="coupon-clear"
+                :title="t('common.cancel')"
+                @click="couponCode = ''"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
           <div class="network-grid">
             <button
               v-for="net in networks"
@@ -287,7 +319,7 @@ function goBack() {
             <button class="action-btn secondary-btn" @click="goBack">{{ t('crypto.backToCheckout') }}</button>
             <button
               class="action-btn primary-btn pay-btn"
-              :disabled="!selectedNetwork"
+              :disabled="!selectedNetwork && !normalizedCouponCode"
               @click="handlePay"
             >
               {{ t('crypto.payAmount', { amount: formatUSDT(order.price_amount) }) }}
@@ -542,6 +574,70 @@ function goBack() {
   margin: 0.35rem 0 0;
   font-size: 0.82rem;
   color: var(--text-muted);
+}
+
+/* ─── Coupon code ─── */
+.coupon-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.coupon-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.coupon-control {
+  position: relative;
+}
+
+.coupon-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 0.7rem 2.3rem 0.7rem 0.85rem;
+  outline: none;
+  text-transform: uppercase;
+}
+
+.coupon-input:focus {
+  border-color: #26a17b;
+  box-shadow: 0 0 0 2px rgba(38, 161, 123, 0.16);
+}
+
+.coupon-input::placeholder {
+  color: var(--text-muted);
+  text-transform: none;
+}
+
+.coupon-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.65rem;
+  width: 24px;
+  height: 24px;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.coupon-clear:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
 }
 
 /* ─── Network Grid ─── */

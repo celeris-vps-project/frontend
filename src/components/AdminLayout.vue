@@ -15,6 +15,7 @@ const navItems = [
   { path: '/admin/nodes', labelKey: 'nav.hostNodes', icon: 'nodes' },
   { path: '/admin/resource-pools', labelKey: 'nav.resourcePools', icon: 'pools' },
   { path: '/admin/products', labelKey: 'nav.products', icon: 'products' },
+  { path: '/admin/coupons', labelKey: 'nav.coupons', icon: 'coupons' },
   { path: '/admin/payment-providers', labelKey: 'nav.payment', icon: 'payment' },
   { path: '/admin/performance', labelKey: 'nav.performance', icon: 'performance' },
   { path: '/admin/general', label: '通用设置', icon: 'settings' },
@@ -95,6 +96,13 @@ function goToDashboard() {
           <svg v-else-if="item.icon === 'payment'" class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
             <line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+          <!-- Coupons -->
+          <svg v-else-if="item.icon === 'coupons'" class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7z"/>
+            <path d="M9 9h.01"/>
+            <path d="M15 15h.01"/>
+            <path d="m9 15 6-6"/>
           </svg>
           <!-- Performance -->
           <svg v-else-if="item.icon === 'performance'" class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

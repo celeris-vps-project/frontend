@@ -229,6 +229,31 @@ export async function adjustProductStock(id, totalSlots) {
   return res.data
 }
 
+// ---- Coupons / Activation Codes (admin management) ----
+
+export async function listCoupons() {
+  const res = await request('GET', '/api/v1/admin/coupons')
+  return res.data || []
+}
+
+export async function getCoupon(id) {
+  const res = await request('GET', `/api/v1/admin/coupons/${id}`)
+  return res.data
+}
+
+export async function createCoupon(payload) {
+  const res = await request('POST', '/api/v1/admin/coupons', payload)
+  return res.data
+}
+
+export async function enableCoupon(id) {
+  return await request('POST', `/api/v1/admin/coupons/${id}/enable`)
+}
+
+export async function disableCoupon(id) {
+  return await request('POST', `/api/v1/admin/coupons/${id}/disable`)
+}
+
 // ---- Payment Providers (admin management) ----
 
 export async function listPaymentProviders() {

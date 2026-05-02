@@ -45,6 +45,7 @@ export default {
     products: 'Products',
     performance: 'Performance',
     payment: 'Payment',
+    coupons: 'Coupons',
   },
 
   // ─── Auth ───
@@ -274,6 +275,10 @@ export default {
     paymentMethod: 'Payment Method',
     usdtMultiChain: '₮ USDT (Multi-Chain)',
     selectPaymentMethod: 'Select Payment Method',
+    activationCode: 'Activation / Coupon Code',
+    activationCodePlaceholder: 'e.g. MAYDAY2026',
+    redeemCode: 'Redeem Code',
+    couponOnlyHint: 'You can redeem the code directly. Select a payment method if a balance remains.',
     loadingProviders: 'Loading payment methods...',
     noPaymentMethods: 'No payment methods available. Please contact support.',
     selectMethodHint: 'Please select a payment method above to continue.',
@@ -821,6 +826,43 @@ export default {
   },
 
   // ─── Admin Payment Providers ───
+  adminCoupons: {
+    title: 'Coupons',
+    subtitle: 'Manage free-claim and discount campaigns',
+    createTitle: 'Create Coupon',
+    code: 'Code',
+    codePlaceholder: 'e.g. MAYDAY2026',
+    discountType: 'Discount Type',
+    typeFree: 'Free',
+    typePercent: 'Percent',
+    typeFixed: 'Fixed Amount',
+    discountValue: 'Discount Value',
+    maxRedemptions: 'Total Uses',
+    perUserLimit: 'Per User',
+    startsAt: 'Starts At',
+    expiresAt: 'Expires At',
+    description: 'Note',
+    descriptionPlaceholder: 'e.g. May Day free claim',
+    allowedProducts: 'Allowed Products',
+    productSearch: 'Search products...',
+    selectedProducts: '{count} products selected',
+    createCoupon: 'Create Coupon',
+    creating: 'Creating...',
+    searchPlaceholder: 'Search code, note, or ID...',
+    loadingCoupons: 'Loading coupons...',
+    noCoupons: 'No coupons match your filters.',
+    all: 'All',
+    enabled: 'Enabled',
+    disabled: 'Disabled',
+    enable: 'Enable',
+    disable: 'Disable',
+    discount: 'Discount',
+    discountFree: 'Free',
+    usage: 'Usage',
+    unlimited: 'unlimited',
+  },
+
+  // ─── Admin Payment Providers ───
   adminPayment: {
     title: 'Payment Providers',
     subtitle: 'Configure payment methods for customer checkout',
@@ -970,6 +1012,8 @@ export default {
     TOKEN_NOT_FOUND: 'Token not found',
     IP_NOT_FOUND: 'IP address not found',
     TASK_NOT_FOUND: 'Task not found',
+    PROVIDER_NOT_FOUND: 'Payment provider not found',
+    COUPON_NOT_FOUND: 'Coupon not found',
 
     // ── Business logic ──
     ORDER_NOT_PENDING: 'Order is not in pending status',
@@ -986,6 +1030,8 @@ export default {
     NODE_DISABLED: 'Node is disabled',
     CRYPTO_NOT_CONFIGURED: 'Crypto payments not configured',
     ALREADY_PAID: 'Already paid, operation not allowed',
+    COUPON_INVALID: 'Coupon is not available',
+    COUPON_EXHAUSTED: 'Coupon redemption limit reached',
 
     // ── Generic ──
     INTERNAL_ERROR: 'Internal server error',

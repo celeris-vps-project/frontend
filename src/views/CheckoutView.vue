@@ -19,11 +19,13 @@ const payError = ref('')
 const paymentStatus = ref('idle') // idle | processing | confirmed | failed
 const pollTimer = ref(null)
 const invoiceID = ref('') // linked billing invoice ID
+const couponCode = ref('')
 
 // ── Payment providers ──
 const providers = ref([])
 const providersLoading = ref(true)
 const selectedProvider = ref(null)
+const normalizedCouponCode = computed(() => couponCode.value.trim())
 
 // ── Provider type metadata (icon, color, label) ──
 const providerMeta = {
@@ -114,21 +116,31 @@ function selectProvider(provider) {
 
 // ── Pay button text ──
 const payButtonText = computed(() => {
-  if (!selectedProvider.value) return t('checkout.selectMethodFirst')
+  if (!selectedProvider.value) {
+    return normalizedCouponCode.value ? t('checkout.redeemCode') : t('checkout.selectMethodFirst')
+  }
   const meta = getProviderMeta(selectedProvider.value.type)
   return `${meta.icon} ${t('checkout.payWith', { name: selectedProvider.value.name })}`
+})
+
+const canPay = computed(() => {
+  return !paying.value && (selectedProvider.value || normalizedCouponCode.value)
 })
 
 // ── Pay button handler — routes to appropriate payment page ──
 
 async function handlePay() {
-  if (paying.value || paymentStatus.value === 'confirmed' || !selectedProvider.value) return
+  if (paying.value || paymentStatus.value === 'confirmed' || !canPay.value) return
 
   const provider = selectedProvider.value
+  const code = normalizedCouponCode.value
 
   // For crypto_usdt, navigate to the dedicated crypto payment page (network selection + QR)
-  if (provider.type === 'crypto_usdt') {
-    router.push(`/orders/${orderID}/pay`)
+  if (provider?.type === 'crypto_usdt') {
+    router.push({
+      path: `/orders/${orderID}/pay`,
+      query: code ? { coupon_code: code } : {}
+    })
     return
   }
 
@@ -138,7 +150,15 @@ async function handlePay() {
   payError.value = ''
 
   try {
-    const result = await initiatePayment(orderID, null, provider.id)
+    const result = await initiatePayment(orderID, null, provider?.id, code)
+    invoiceID.value = result.invoice_id || ''
+
+    if (result.status === 'success' || result.payable_amount === 0) {
+      paymentStatus.value = 'confirmed'
+      order.value = { ...order.value, status: 'active' }
+      paying.value = false
+      return
+    }
 
     // If the backend returns an external payment URL, redirect the browser
     if (result.payment_url && result.payment_url.startsWith('http')) {
@@ -147,7 +167,6 @@ async function handlePay() {
     }
 
     // For mock mode or internal URLs, show processing state and poll
-    invoiceID.value = result.invoice_id || ''
     paymentStatus.value = 'processing'
     startPolling()
   } catch (err) {
@@ -296,6 +315,31 @@ function goBack() {
 
           <!-- ═══ Payment Method Selection ═══ -->
           <div v-if="paymentStatus === 'idle'" class="provider-section">
+            <div class="coupon-box">
+              <label class="coupon-label" for="coupon-code">{{ t('checkout.activationCode') }}</label>
+              <div class="coupon-control">
+                <input
+                  id="coupon-code"
+                  v-model="couponCode"
+                  type="text"
+                  class="coupon-input"
+                  :placeholder="t('checkout.activationCodePlaceholder')"
+                  autocomplete="off"
+                />
+                <button
+                  v-if="couponCode"
+                  type="button"
+                  class="coupon-clear"
+                  :title="t('common.cancel')"
+                  @click="couponCode = ''"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div class="pay-divider compact"></div>
+
             <div class="provider-section-header">
               <span class="provider-section-label">{{ t('checkout.selectPaymentMethod') }}</span>
             </div>
@@ -346,7 +390,7 @@ function goBack() {
               <p class="pay-info">
                 {{ selectedProvider
                   ? t('checkout.payInfo')
-                  : t('checkout.selectMethodHint')
+                  : (normalizedCouponCode ? t('checkout.couponOnlyHint') : t('checkout.selectMethodHint'))
                 }}
               </p>
               <button
@@ -354,7 +398,7 @@ function goBack() {
                 :class="{ 'provider-pay-btn': selectedProvider }"
                 :style="selectedProvider ? { '--btn-color': getProviderMeta(selectedProvider.type).color } : {}"
                 @click="handlePay"
-                :disabled="paying || !selectedProvider"
+                :disabled="!canPay"
               >
                 {{ payButtonText }}
               </button>
@@ -617,6 +661,73 @@ function goBack() {
   height: 1px;
   background: var(--bg-input);
   margin: 1.25rem 0;
+}
+
+.pay-divider.compact {
+  margin: 0.75rem 0;
+}
+
+/* ─── Coupon code ─── */
+.coupon-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.coupon-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.coupon-control {
+  position: relative;
+}
+
+.coupon-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 0.7rem 2.3rem 0.7rem 0.85rem;
+  outline: none;
+  text-transform: uppercase;
+}
+
+.coupon-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.coupon-input::placeholder {
+  color: var(--text-muted);
+  text-transform: none;
+}
+
+.coupon-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.65rem;
+  width: 24px;
+  height: 24px;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.coupon-clear:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
 }
 
 /* ─── Provider Selection Section ─── */

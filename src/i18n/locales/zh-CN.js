@@ -45,6 +45,7 @@ export default {
     products: '产品管理',
     performance: '性能监控',
     payment: '支付管理',
+    coupons: '激活码',
   },
 
   // ─── Auth ───
@@ -274,6 +275,10 @@ export default {
     paymentMethod: '支付方式',
     usdtMultiChain: '₮ USDT (多链)',
     selectPaymentMethod: '选择支付方式',
+    activationCode: '激活码 / 优惠码',
+    activationCodePlaceholder: '例如 MAYDAY2026',
+    redeemCode: '使用激活码领取',
+    couponOnlyHint: '可直接使用激活码领取；若仍需付款，请选择支付方式。',
     loadingProviders: '加载支付方式中...',
     noPaymentMethods: '暂无可用的支付方式，请联系客服。',
     selectMethodHint: '请在上方选择一种支付方式以继续。',
@@ -821,6 +826,43 @@ export default {
   },
 
   // ─── Admin Payment Providers ───
+  adminCoupons: {
+    title: '激活码',
+    subtitle: '管理免费领取和优惠码活动',
+    createTitle: '创建激活码',
+    code: '代码',
+    codePlaceholder: '例如 MAYDAY2026',
+    discountType: '折扣类型',
+    typeFree: '免费',
+    typePercent: '百分比',
+    typeFixed: '固定金额',
+    discountValue: '折扣值',
+    maxRedemptions: '总次数',
+    perUserLimit: '每用户次数',
+    startsAt: '开始时间',
+    expiresAt: '过期时间',
+    description: '备注',
+    descriptionPlaceholder: '例如 五一免费领取活动',
+    allowedProducts: '适用产品',
+    productSearch: '搜索产品...',
+    selectedProducts: '已选 {count} 个产品',
+    createCoupon: '创建激活码',
+    creating: '创建中...',
+    searchPlaceholder: '搜索代码、备注或 ID...',
+    loadingCoupons: '加载激活码中...',
+    noCoupons: '没有匹配的激活码。',
+    all: '全部',
+    enabled: '已启用',
+    disabled: '已停用',
+    enable: '启用',
+    disable: '停用',
+    discount: '折扣',
+    discountFree: '免费',
+    usage: '使用次数',
+    unlimited: '不限',
+  },
+
+  // ─── Admin Payment Providers ───
   adminPayment: {
     title: '支付服务商',
     subtitle: '配置客户结账时可用的支付方式',
@@ -962,6 +1004,8 @@ export default {
     TOKEN_NOT_FOUND: 'Token 不存在',
     IP_NOT_FOUND: 'IP 地址不存在',
     TASK_NOT_FOUND: '任务不存在',
+    PROVIDER_NOT_FOUND: '支付服务商不存在',
+    COUPON_NOT_FOUND: '激活码不存在',
 
     // ── Business logic ──
     ORDER_NOT_PENDING: '订单不在待处理状态',
@@ -978,6 +1022,8 @@ export default {
     NODE_DISABLED: '节点已禁用',
     CRYPTO_NOT_CONFIGURED: '加密支付未配置',
     ALREADY_PAID: '已完成支付，无法操作',
+    COUPON_INVALID: '激活码不可用',
+    COUPON_EXHAUSTED: '激活码已被领完',
 
     // ── Generic ──
     INTERNAL_ERROR: '服务器内部错误',

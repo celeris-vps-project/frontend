@@ -26,6 +26,7 @@ import AdminPerformanceView from '../views/admin/AdminPerformanceView.vue'
 import AdminPaymentProvidersView from '../views/admin/AdminPaymentProvidersView.vue'
 import AdminCreatePaymentProviderView from '../views/admin/AdminCreatePaymentProviderView.vue'
 import AdminEditPaymentProviderView from '../views/admin/AdminEditPaymentProviderView.vue'
+import AdminCouponsView from '../views/admin/AdminCouponsView.vue'
 import AdminGeneralSettingsView from '../views/admin/AdminGeneralSettingsView.vue'
 import AdminSMTPSettingsView from '../views/admin/AdminSMTPSettingsView.vue'
 import { getToken, getRole } from '../api/auth'
@@ -70,6 +71,7 @@ const routes = [
   { path: '/admin/payment-providers', name: 'admin-payment-providers', component: AdminPaymentProvidersView, meta: { auth: true, admin: true } },
   { path: '/admin/payment-providers/new', name: 'admin-create-payment-provider', component: AdminCreatePaymentProviderView, meta: { auth: true, admin: true } },
   { path: '/admin/payment-providers/:id/edit', name: 'admin-edit-payment-provider', component: AdminEditPaymentProviderView, meta: { auth: true, admin: true } },
+  { path: '/admin/coupons', name: 'admin-coupons', component: AdminCouponsView, meta: { auth: true, admin: true } },
 
   // Admin Performance monitor
   { path: '/admin/performance', name: 'admin-performance', component: AdminPerformanceView, meta: { auth: true, admin: true } },

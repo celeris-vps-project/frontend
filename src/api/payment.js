@@ -39,12 +39,14 @@ export async function getPaymentProviders() {
  * @param {string} orderId    - the order to pay
  * @param {string} [network]  - blockchain network (arbitrum, solana, trc20, bsc, polygon)
  * @param {string} [providerId] - payment provider ID for dynamic routing
+ * @param {string} [couponCode] - optional activation/coupon code
  * @returns {PayResponse} - includes payment_url, crypto details, etc.
  */
-export async function initiatePayment(orderId, network, providerId) {
+export async function initiatePayment(orderId, network, providerId, couponCode) {
   const body = {}
   if (network) body.network = network
   if (providerId) body.provider_id = providerId
+  if (couponCode) body.coupon_code = couponCode.trim()
   body.currency = 'USDT'
   const res = await request('POST', `/api/v1/orders/${orderId}/pay`, body)
   return res.data

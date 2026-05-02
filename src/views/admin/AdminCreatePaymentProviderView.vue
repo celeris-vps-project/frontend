@@ -50,6 +50,8 @@ watch(selectedType, (newType) => {
     // Pre-fill default pay_type for EPay (alipay is the most common channel)
     if (newType === 'epay') {
       configValues.value.pay_type = 'alipay'
+      configValues.value.timestamp_header = 'timestamp'
+      configValues.value.signature_header = 'signature'
     }
   }
 })
