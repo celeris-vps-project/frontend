@@ -31,7 +31,7 @@ const displayLabel = computed(() => {
   letter-spacing: 0.04em;
 }
 
-.badge-pending, .badge-draft {
+.badge-pending, .badge-provisioning, .badge-draft {
   background: var(--warning-bg);
   color: var(--warning);
   border: 1px solid var(--warning-border);
@@ -49,7 +49,7 @@ const displayLabel = computed(() => {
   border: 1px solid var(--success-border);
 }
 
-.badge-stopped, .badge-issued {
+.badge-stopped, .badge-paused, .badge-issued {
   background: var(--info-bg);
   color: var(--info);
   border: 1px solid var(--info-border);

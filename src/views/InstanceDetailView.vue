@@ -48,6 +48,17 @@ const liveInstance = computed(() => {
   return ws ? { ...instance.value, ...ws } : instance.value
 })
 
+function controlStatus(inst) {
+  return inst?.control_status || inst?.status
+}
+
+function isControlActive(inst) {
+  const control = controlStatus(inst)
+  if (['provisioning', 'suspended', 'terminated'].includes(control)) return false
+  if (control === 'active') return true
+  return ['running', 'stopped', 'paused', 'active'].includes(inst?.status)
+}
+
 async function doAction(actionFn, actionKey) {
   actionLoading.value = actionKey
   actionError.value = ''
@@ -64,13 +75,13 @@ async function doAction(actionFn, actionKey) {
 }
 
 const canStart = computed(() => {
-  return liveInstance.value && ['pending', 'stopped'].includes(liveInstance.value.status)
+  return liveInstance.value && isControlActive(liveInstance.value) && liveInstance.value.status === 'stopped'
 })
 
-const canStop = computed(() => liveInstance.value?.status === 'running')
-const canSuspend = computed(() => liveInstance.value?.status === 'running')
-const canUnsuspend = computed(() => liveInstance.value?.status === 'suspended')
-const canTerminate = computed(() => liveInstance.value && liveInstance.value.status !== 'terminated')
+const canStop = computed(() => liveInstance.value?.status === 'running' && isControlActive(liveInstance.value))
+const canSuspend = computed(() => liveInstance.value && isControlActive(liveInstance.value) && liveInstance.value.status !== 'provisioning')
+const canUnsuspend = computed(() => controlStatus(liveInstance.value) === 'suspended')
+const canTerminate = computed(() => liveInstance.value && controlStatus(liveInstance.value) !== 'terminated')
 
 const timelineRows = computed(() => {
   if (!liveInstance.value) return []
@@ -185,13 +196,13 @@ function sshCommand(inst) {
 }
 
 function statusHeadline(status) {
-  const key = ['running', 'stopped', 'suspended', 'terminated'].includes(status) ? status : 'pending'
+  const key = ['running', 'stopped', 'paused', 'active', 'suspended', 'terminated', 'provisioning'].includes(status) ? status : 'active'
   return t(`instanceDetail.statusHeadline.${key}`)
 }
 
 function statusCopy(inst) {
   if (!inst) return ''
-  const key = ['running', 'stopped', 'suspended', 'terminated'].includes(inst.status) ? inst.status : 'pending'
+  const key = ['running', 'stopped', 'paused', 'active', 'suspended', 'terminated', 'provisioning'].includes(inst.status) ? inst.status : 'active'
   return t(`instanceDetail.statusCopy.${key}`)
 }
 </script>
@@ -266,7 +277,7 @@ function statusCopy(inst) {
           </div>
         </section>
 
-        <div v-if="liveInstance.status === 'pending'" class="provisioning-banner glass-card">
+        <div v-if="liveInstance.status === 'provisioning'" class="provisioning-banner glass-card">
           <div class="spinner-sm"></div>
           <div class="provisioning-text">
             <strong>{{ t('instanceDetail.provisioningRunning') }}</strong>

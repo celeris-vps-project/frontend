@@ -738,7 +738,7 @@ function networkPortCountValid() {
 .specs-section h2 {
   margin: 0 0 0.2rem;
   font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
 .section-desc {
@@ -796,7 +796,7 @@ function networkPortCountValid() {
 .spec-detail-value {
   font-size: 1rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
 .network-section {
@@ -807,7 +807,7 @@ function networkPortCountValid() {
 .network-section h2 {
   margin: 0 0 0.2rem;
   font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
 .network-mode-banner {
@@ -978,7 +978,7 @@ function networkPortCountValid() {
 .price-section h2 {
   margin: 0 0 0.2rem;
   font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
 .current-price-display {
@@ -1055,9 +1055,14 @@ function networkPortCountValid() {
 
 .form-select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 6 5-6' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E");
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-repeat: no-repeat;
-  background-position: right 0.8rem center;
+  background-position:
+    calc(100% - 1rem) 50%,
+    calc(100% - 0.7rem) 50%;
+  background-size: 6px 6px, 6px 6px;
   padding-right: 2rem;
 }
 
@@ -1106,7 +1111,7 @@ function networkPortCountValid() {
 .stock-section h2 {
   margin: 0 0 0.2rem;
   font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
 .stock-display {
@@ -1137,7 +1142,7 @@ function networkPortCountValid() {
 .stock-stat-value {
   font-size: 1.5rem;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
 .stock-stat-value.sold {

@@ -216,8 +216,11 @@ export async function fetchInstanceWsTicket() {
 
 const STATUS_LABELS = {
   pending: 'Pending',
+  provisioning: 'Provisioning',
+  active: 'Active',
   running: 'Running',
   stopped: 'Stopped',
+  paused: 'Paused',
   suspended: 'Suspended',
   terminated: 'Terminated'
 }

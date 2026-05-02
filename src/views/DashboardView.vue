@@ -33,7 +33,7 @@ async function fetchInstances() {
 const stats = computed(() => {
   const all = instances.value
   const runningCount = all.filter(i => i.status === 'running').length
-  const pendingCount = all.filter(i => i.status === 'pending').length
+  const pendingCount = all.filter(i => i.status === 'provisioning').length
   const stoppedCount = all.filter(i => i.status === 'stopped').length
   const suspendedCount = all.filter(i => i.status === 'suspended').length
   return { runningCount, pendingCount, stoppedCount, suspendedCount, total: all.length }

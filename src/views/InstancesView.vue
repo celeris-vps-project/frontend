@@ -59,7 +59,7 @@ const filteredInstances = computed(() => {
 })
 
 const statusCounts = computed(() => {
-  const counts = { all: mergedInstances.value.length, pending: 0, running: 0, stopped: 0, suspended: 0, terminated: 0 }
+  const counts = { all: mergedInstances.value.length, active: 0, provisioning: 0, running: 0, stopped: 0, suspended: 0, terminated: 0 }
   mergedInstances.value.forEach((inst) => {
     if (counts[inst.status] !== undefined) counts[inst.status] += 1
   })
@@ -69,12 +69,12 @@ const statusCounts = computed(() => {
 const fleetStats = computed(() => {
   const all = mergedInstances.value
   const running = all.filter((inst) => inst.status === 'running').length
-  const pending = all.filter((inst) => inst.status === 'pending').length
+  const provisioning = all.filter((inst) => inst.status === 'provisioning').length
   const networkReady = all.filter((inst) => inst.ipv4 || inst.ipv6 || hasNatPorts(inst)).length
   return {
     total: all.length,
     running,
-    pending,
+    pending: provisioning,
     networkReady,
   }
 })
@@ -83,7 +83,8 @@ const filterTabs = computed(() => [
   { key: 'all', label: t('instances.all') },
   { key: 'running', label: t('instances.running') },
   { key: 'stopped', label: t('instances.stopped') },
-  { key: 'pending', label: t('instances.pending') },
+  { key: 'active', label: t('instances.active') },
+  { key: 'provisioning', label: t('instances.provisioning') },
   { key: 'suspended', label: t('instances.suspended') },
   { key: 'terminated', label: t('instances.terminated') }
 ])
@@ -261,7 +262,7 @@ function hasLiveState(id) {
               <span v-if="inst.ipv6" class="ip-tag ipv6">{{ inst.ipv6 }}</span>
             </div>
 
-            <div v-if="inst.status === 'pending'" class="provisioning-hint">
+            <div v-if="inst.status === 'provisioning'" class="provisioning-hint">
               <span class="provisioning-dot"></span>
               <span>{{ t('instances.provisioningInProgress') }}</span>
             </div>
