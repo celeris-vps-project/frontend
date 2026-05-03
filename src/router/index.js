@@ -35,10 +35,18 @@ import { getToken, getRole } from '../api/auth'
 
 function paymentStatusRedirect(result) {
   return (to) => ({
-    name: 'order-payment-status',
+    name: 'payment-result',
     params: { id: to.params.id },
     query: { ...to.query, result }
   })
+}
+
+function legacyPaymentStatusRedirect(to) {
+  return {
+    name: 'payment-result',
+    params: { id: to.params.id },
+    query: to.query
+  }
 }
 
 const routes = [
@@ -53,7 +61,9 @@ const routes = [
   { path: '/orders/:id/checkout', name: 'checkout', component: CheckoutView, meta: { auth: true } },
   { path: '/orders/:id/pay', name: 'crypto-payment', component: CryptoPaymentView, meta: { auth: true } },
   { path: '/orders/:id/pay/epay', name: 'epay-payment', component: EPayPaymentView, meta: { auth: true } },
-  { path: '/orders/:id/payments/status', name: 'order-payment-status', component: OrderPaymentStatusView, meta: { auth: true }, alias: '/orders/:id/status' },
+  { path: '/payment/result/:id', name: 'payment-result', component: OrderPaymentStatusView, meta: { auth: true } },
+  { path: '/orders/:id/payments/status', redirect: legacyPaymentStatusRedirect, meta: { auth: true } },
+  { path: '/orders/:id/status', redirect: legacyPaymentStatusRedirect, meta: { auth: true } },
   { path: '/orders/:id/payment/success', name: 'payment-success', redirect: paymentStatusRedirect('success'), meta: { auth: true } },
   { path: '/orders/:id/payment/cancel', name: 'payment-cancel', redirect: paymentStatusRedirect('cancelled'), meta: { auth: true } },
   { path: '/orders/:id/payment/failed', name: 'payment-failed', redirect: paymentStatusRedirect('failed'), meta: { auth: true } },

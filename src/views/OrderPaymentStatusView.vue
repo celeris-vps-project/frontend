@@ -13,7 +13,7 @@ import {
 } from '../api/billing.js'
 import { streamPaymentStatus } from '../api/payment.js'
 
-const POLL_INTERVAL_MS = 2000
+const POLL_INTERVAL_MS = 5000
 const REDIRECT_SECONDS = 5
 
 const route = useRoute()

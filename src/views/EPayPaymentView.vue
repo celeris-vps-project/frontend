@@ -57,14 +57,14 @@ async function startPayment() {
   try {
     const result = await initiatePayment(orderID, null, provider.value.id, couponCode.value, selectedType.value)
     if (result.status === 'success' || result.payable_amount === 0) {
-      router.push(`/orders/${orderID}/payments/status?result=success`)
+      router.push({ name: 'payment-result', params: { id: orderID }, query: { result: 'success' } })
       return
     }
     if (result.payment_url && result.payment_url.startsWith('http')) {
       window.location.href = result.payment_url
       return
     }
-    router.push(`/orders/${orderID}/payments/status`)
+    router.push({ name: 'payment-result', params: { id: orderID } })
   } catch (err) {
     error.value = err.message || t('epayPayment.startFailed')
   } finally {
