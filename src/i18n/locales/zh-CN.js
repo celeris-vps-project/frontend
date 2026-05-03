@@ -553,6 +553,7 @@ export default {
     all: '全部',
     online: '在线',
     offline: '离线',
+    disabled: '禁用',
     vms: '{count} VMs',
     cpu: '核心',
     memory: '内存',

@@ -553,6 +553,7 @@ export default {
     all: 'All',
     online: 'Online',
     offline: 'Offline',
+    disabled: 'Disabled',
     vms: '{count} VMs',
     cpu: 'CPU',
     memory: 'Memory',

@@ -68,7 +68,7 @@ async function saveSettings() {
             v-model="publicBaseUrl"
             type="text"
             class="text-input"
-            placeholder="https://cloud.voidval.com"
+            placeholder="https://celeris.local"
           />
           <p class="field-hint">用于支付网关 Webhook 回调；不要填写后端监听端口，除非该端口能被公网直接访问。</p>
         </div>

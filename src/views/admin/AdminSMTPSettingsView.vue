@@ -9,6 +9,11 @@ const testing = ref(false)
 const error = ref('')
 const testEmail = ref('')
 const form = ref(defaultForm())
+const defaultPortsByTLSMode = {
+  plain: 25,
+  starttls: 587,
+  tls: 465
+}
 
 function defaultForm() {
   return {
@@ -86,6 +91,7 @@ async function sendTest() {
 function setTLSMode(mode) {
   form.value.use_tls = mode === 'tls'
   form.value.use_starttls = mode === 'starttls'
+  form.value.port = defaultPortsByTLSMode[mode] || 587
 }
 </script>
 

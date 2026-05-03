@@ -50,12 +50,12 @@ export async function createHostNode({
 }
 
 export async function enableHostNode(id) {
-  const res = await request('POST', `/api/v1/admin/host-nodes/${id}/enable`)
+  const res = await request('POST', `/api/v1/admin/nodes/${id}/enable`)
   return res.data
 }
 
 export async function disableHostNode(id) {
-  const res = await request('POST', `/api/v1/admin/host-nodes/${id}/disable`)
+  const res = await request('POST', `/api/v1/admin/nodes/${id}/disable`)
   return res.data
 }
 
@@ -65,7 +65,7 @@ export async function updateHostNodeNatEntry(id, natEntryHost) {
 }
 
 export async function revokeNodeToken(id) {
-  return await request('POST', `/api/v1/admin/host-nodes/${id}/revoke-token`)
+  return await request('POST', `/api/v1/admin/nodes/${id}/revoke-token`)
 }
 
 export async function createNodeBootstrapToken(nodeId, { ttl_minutes, description }) {

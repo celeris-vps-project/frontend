@@ -54,7 +54,9 @@ const mergedNodes = computed(() => {
 
 const filteredNodes = computed(() => {
   let results = mergedNodes.value
-  if (filterStatus.value !== 'all') {
+  if (filterStatus.value === 'disabled') {
+    results = results.filter(n => !n.enabled)
+  } else if (filterStatus.value !== 'all') {
     results = results.filter(n => n.status === filterStatus.value)
   }
   if (searchQuery.value) {
@@ -70,8 +72,9 @@ const filteredNodes = computed(() => {
 })
 
 const statusCounts = computed(() => {
-  const counts = { all: mergedNodes.value.length, online: 0, offline: 0 }
+  const counts = { all: mergedNodes.value.length, online: 0, offline: 0, disabled: 0 }
   mergedNodes.value.forEach(n => {
+    if (!n.enabled) counts.disabled++
     if (counts[n.status] !== undefined) counts[n.status]++
   })
   return counts
@@ -80,7 +83,8 @@ const statusCounts = computed(() => {
 const filterTabs = computed(() => [
   { key: 'all', label: t('adminNodes.all') },
   { key: 'online', label: t('adminNodes.online') },
-  { key: 'offline', label: t('adminNodes.offline') }
+  { key: 'offline', label: t('adminNodes.offline') },
+  { key: 'disabled', label: t('adminNodes.disabled') }
 ])
 
 function goToNode(id) {
@@ -166,6 +170,7 @@ function formatNatPortRange(node) {
           v-for="node in filteredNodes"
           :key="node.id"
           class="node-card glass-card"
+          :class="{ disabled: !node.enabled }"
           @click="goToNode(node.id)"
         >
           <div class="node-card-top">
@@ -173,7 +178,10 @@ function formatNatPortRange(node) {
               <span class="node-code">{{ node.code }}</span>
               <span class="node-name">{{ node.name }}</span>
             </div>
-            <NodeStatusBadge :status="node.status" />
+            <div class="status-stack">
+              <NodeStatusBadge :status="node.status" />
+              <span v-if="!node.enabled" class="node-disabled-badge">{{ t('adminNodes.disabled') }}</span>
+            </div>
           </div>
 
           <div class="node-card-body">
@@ -379,6 +387,10 @@ function formatNatPortRange(node) {
   cursor: pointer;
   transition: all 0.2s;
 }
+.node-card.disabled {
+  border-color: var(--warning-border);
+  background: color-mix(in srgb, var(--warning-bg) 45%, var(--bg-card));
+}
 .node-card:hover {
   border-color: var(--text-muted);
   transform: translateY(-1px);
@@ -393,6 +405,24 @@ function formatNatPortRange(node) {
 }
 
 .node-id-col { display: flex; flex-direction: column; gap: 0.15rem; }
+.status-stack {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex-direction: column;
+}
+.node-disabled-badge {
+  display: inline-flex;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .node-code {
   font-family: monospace;
   font-weight: 700;

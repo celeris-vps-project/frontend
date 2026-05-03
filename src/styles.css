@@ -15,6 +15,9 @@
   --bg-elevated: rgba(255, 255, 255, 0.9);
   --bg-code: rgba(0, 0, 0, 0.04);
   --bg-overlay: rgba(255, 255, 255, 0.6);
+  --dialog-overlay-bg: rgba(255, 255, 255, 0.34);
+  --dialog-surface-bg: rgba(255, 255, 255, 0.78);
+  --dialog-border: rgba(255, 255, 255, 0.62);
 
   /* Borders */
   --border-glass: rgba(255, 255, 255, 0.5);
@@ -89,6 +92,9 @@
   --bg-elevated: rgba(255, 255, 255, 0.08);
   --bg-code: rgba(255, 255, 255, 0.06);
   --bg-overlay: rgba(0, 0, 0, 0.4);
+  --dialog-overlay-bg: rgba(4, 4, 18, 0.48);
+  --dialog-surface-bg: rgba(18, 18, 40, 0.74);
+  --dialog-border: rgba(255, 255, 255, 0.14);
 
   --border-glass: rgba(255, 255, 255, 0.08);
   --border-subtle: rgba(255, 255, 255, 0.04);

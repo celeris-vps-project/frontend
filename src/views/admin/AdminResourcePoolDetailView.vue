@@ -439,11 +439,22 @@ async function handleRemoveNode(nodeId) {
 
 /* Dialog */
 .dialog-overlay {
-  position: fixed; inset: 0; background: var(--bg-code);
+  position: fixed; inset: 0;
   display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  background: var(--dialog-overlay-bg);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
   z-index: 100;
 }
-.dialog { padding: 2rem; width: 400px; max-width: 90vw; }
+.dialog {
+  padding: 2rem;
+  width: 400px;
+  max-width: 90vw;
+  background: var(--dialog-surface-bg);
+  border-color: var(--dialog-border);
+  box-shadow: var(--glass-shadow-lg);
+}
 .dialog-title { margin: 0 0 1.5rem; font-size: 1.1rem; color: var(--text-primary); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
 
@@ -451,7 +462,7 @@ async function handleRemoveNode(nodeId) {
 .form-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
 .form-input {
   width: 100%; padding: 0.7rem 1rem;
-  background: var(--bg-card);
+  background: var(--bg-input);
   border: 1px solid var(--border-default);
   border-radius: 10px; color: var(--text-primary); font-size: 0.9rem;
   outline: none; box-sizing: border-box;
