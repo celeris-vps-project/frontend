@@ -206,10 +206,9 @@ function goToEdit(p) {
             >{{ net }}</span>
           </div>
 
-          <!-- Custom provider: show webhook URL -->
-          <div v-if="p.type === 'custom' && p.config?.notify_url" class="config-summary webhook-summary">
+          <div v-if="p.webhook_url" class="config-summary webhook-summary">
             <span class="config-label">{{ t('adminPayment.webhookUrl') }}:</span>
-            <code class="webhook-url">{{ p.config.notify_url }}</code>
+            <code class="webhook-url">{{ p.webhook_url }}</code>
           </div>
 
           <div class="provider-actions">

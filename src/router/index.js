@@ -8,6 +8,7 @@ import InstanceDetailView from '../views/InstanceDetailView.vue'
 import NewInstanceView from '../views/NewInstanceView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
 import CryptoPaymentView from '../views/CryptoPaymentView.vue'
+import OrderPaymentStatusView from '../views/OrderPaymentStatusView.vue'
 import InvoicesView from '../views/InvoicesView.vue'
 import InvoiceDetailView from '../views/InvoiceDetailView.vue'
 import CreateInvoiceView from '../views/CreateInvoiceView.vue'
@@ -31,6 +32,14 @@ import AdminGeneralSettingsView from '../views/admin/AdminGeneralSettingsView.vu
 import AdminSMTPSettingsView from '../views/admin/AdminSMTPSettingsView.vue'
 import { getToken, getRole } from '../api/auth'
 
+function paymentStatusRedirect(result) {
+  return (to) => ({
+    name: 'order-payment-status',
+    params: { id: to.params.id },
+    query: { ...to.query, result }
+  })
+}
+
 const routes = [
   { path: '/', redirect: '/dashboard' },
   { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
@@ -42,6 +51,10 @@ const routes = [
   { path: '/instances/:id', name: 'instance-detail', component: InstanceDetailView, meta: { auth: true } },
   { path: '/orders/:id/checkout', name: 'checkout', component: CheckoutView, meta: { auth: true } },
   { path: '/orders/:id/pay', name: 'crypto-payment', component: CryptoPaymentView, meta: { auth: true } },
+  { path: '/orders/:id/status', name: 'order-payment-status', component: OrderPaymentStatusView, meta: { auth: true } },
+  { path: '/orders/:id/payment/success', name: 'payment-success', redirect: paymentStatusRedirect('success'), meta: { auth: true } },
+  { path: '/orders/:id/payment/cancel', name: 'payment-cancel', redirect: paymentStatusRedirect('cancelled'), meta: { auth: true } },
+  { path: '/orders/:id/payment/failed', name: 'payment-failed', redirect: paymentStatusRedirect('failed'), meta: { auth: true } },
 
   // Profile route
   { path: '/profile', name: 'profile', component: ProfileView, meta: { auth: true } },

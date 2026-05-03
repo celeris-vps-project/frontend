@@ -9,6 +9,7 @@ const error = ref('')
 const registrationVerificationEnabled = ref(false)
 const registrationVerificationRequired = ref(false)
 const smtpEnabled = ref(false)
+const publicBaseUrl = ref('')
 
 onMounted(loadSettings)
 
@@ -20,6 +21,7 @@ async function loadSettings() {
     registrationVerificationEnabled.value = !!data.registration_verification_enabled
     registrationVerificationRequired.value = !!data.registration_verification_required
     smtpEnabled.value = !!data.smtp_enabled
+    publicBaseUrl.value = data.public_base_url || ''
   } catch (err) {
     error.value = err.message
   } finally {
@@ -32,11 +34,13 @@ async function saveSettings() {
   error.value = ''
   try {
     const data = await updateGeneralSettings({
-      registration_verification_enabled: registrationVerificationEnabled.value
+      registration_verification_enabled: registrationVerificationEnabled.value,
+      public_base_url: publicBaseUrl.value.trim()
     })
     registrationVerificationEnabled.value = !!data.registration_verification_enabled
     registrationVerificationRequired.value = !!data.registration_verification_required
     smtpEnabled.value = !!data.smtp_enabled
+    publicBaseUrl.value = data.public_base_url || ''
   } catch (err) {
     error.value = err.message
   } finally {
@@ -50,12 +54,24 @@ async function saveSettings() {
     <div class="settings-page">
       <header class="page-header">
         <h1 class="page-title">通用设置</h1>
-        <p class="page-subtitle">控制站点级账号注册行为。</p>
+        <p class="page-subtitle">控制站点级账号注册和公网回调地址。</p>
       </header>
 
       <section v-if="loading" class="glass-card state-card">加载中...</section>
       <section v-else class="glass-card form-card">
         <div v-if="error" class="error-banner">{{ error }}</div>
+
+        <div class="setting-block">
+          <label class="field-label" for="public-base-url">公网 API Base URL</label>
+          <input
+            id="public-base-url"
+            v-model="publicBaseUrl"
+            type="text"
+            class="text-input"
+            placeholder="https://cloud.voidval.com"
+          />
+          <p class="field-hint">用于支付网关 Webhook 回调；不要填写后端监听端口，除非该端口能被公网直接访问。</p>
+        </div>
 
         <div class="setting-row">
           <div>
@@ -119,6 +135,41 @@ async function saveSettings() {
   align-items: center;
   justify-content: space-between;
   gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.setting-block {
+  margin-bottom: 1.25rem;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.text-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.text-input:focus {
+  border-color: var(--accent);
+}
+
+.field-hint {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
 }
 
 .setting-row h2 {
