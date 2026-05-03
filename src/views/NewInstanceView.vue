@@ -4,9 +4,9 @@ import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import {
   listProducts,
-  listProductLines,
-  createOrder
+  listProductLines
 } from '../api/billing.js'
+import { checkout } from '../api/checkout.js'
 
 const router = useRouter()
 const loading = ref(false)
@@ -18,7 +18,6 @@ const form = reactive({
 })
 
 const ORDER_OS = 'node-default'
-const ORDER_CURRENCY = 'cny'
 
 // Backend data
 const products = ref([])
@@ -149,23 +148,11 @@ async function handleSubmit() {
   step.value = 4 // deploying overlay
   try {
     const product = selectedProduct.value
-
-    const order = await createOrder({
-      productID: product.id,
-      billingCycle: product.billing_cycle,
-      currency: ORDER_CURRENCY,
-      priceAmount: product.price_amount,
-      hostname: form.hostname,
-      plan: product.slug,
-      region: product.location,
-      os: ORDER_OS,
-      cpu: product.cpu,
-      memoryMB: product.memory_mb,
-      diskGB: product.disk_gb
-    })
+    const result = await checkout(product.id, form.hostname, ORDER_OS)
+    const orderID = result.order_id
 
     // Redirect to checkout/payment page instead of purchasing directly
-    router.push(`/orders/${order.id}/checkout`)
+    router.push(`/orders/${orderID}/checkout`)
   } catch (err) {
     error.value = err.message
     step.value = prevStep

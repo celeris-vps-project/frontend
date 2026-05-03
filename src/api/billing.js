@@ -113,20 +113,6 @@ export async function getNode(id) {
   return res.data
 }
 
-// ---- Order API (used internally for instance purchase flow) ----
-
-export async function createOrder({ productID, billingCycle, priceAmount, hostname, plan, region, os = 'node-default', cpu, memoryMB, diskGB }) {
-  const res = await request('POST', '/api/v1/orders', {
-    product_id: productID,
-    billing_cycle: billingCycle,
-    currency: 'cny',
-    price_amount: priceAmount,
-    hostname, plan, region, os,
-    cpu, memory_mb: memoryMB, disk_gb: diskGB
-  })
-  return res.data
-}
-
 // GET /orders/:id — get a single order by ID
 export async function getOrder(id) {
   const res = await request('GET', `/api/v1/orders/${id}`)
