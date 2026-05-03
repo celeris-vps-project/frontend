@@ -23,7 +23,7 @@ import { request, API_BASE_URL, authHeaders } from './request'
  *
  * @param {string} productId - the product to purchase
  * @param {string} hostname  - desired VPS hostname
- * @param {string} os        - operating system (e.g. 'ubuntu-22.04')
+ * @param {string} os        - internal image marker; defaults to the node agent template
  * @returns {{ http_status, order_id, message, queue_pos }}
  *   - http_status=200 → purchase successful (sync)
  *   - http_status=202 → queued for processing (subscribe to SSE stream)
@@ -35,7 +35,7 @@ export async function checkout(productId, hostname, os) {
         body: JSON.stringify({
             product_id: productId,
             hostname,
-            os: os || 'ubuntu-22.04'
+            os: os || 'node-default'
         })
     })
     // Don't throw on 202 — it's a valid "accepted" response

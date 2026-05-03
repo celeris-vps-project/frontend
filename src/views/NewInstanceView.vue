@@ -14,10 +14,11 @@ const error = ref('')
 const step = ref(1) // 1: pick product line, 2: pick specs, 3: configure & deploy
 
 const form = reactive({
-  hostname: '',
-  os: 'ubuntu-22.04',
-  currency: 'usd'
+  hostname: ''
 })
+
+const ORDER_OS = 'node-default'
+const ORDER_CURRENCY = 'cny'
 
 // Backend data
 const products = ref([])
@@ -111,23 +112,6 @@ function goBackToSpecs() {
 
 // ── Static data ──
 
-const osList = [
-  { value: 'ubuntu-22.04', label: 'Ubuntu 22.04 LTS' },
-  { value: 'ubuntu-24.04', label: 'Ubuntu 24.04 LTS' },
-  { value: 'debian-12', label: 'Debian 12' },
-  { value: 'centos-9', label: 'CentOS Stream 9' },
-  { value: 'rocky-9', label: 'Rocky Linux 9' },
-  { value: 'windows-2022', label: 'Windows Server 2022' }
-]
-
-const currencies = [
-  { value: 'usd', label: 'USD — US Dollar' },
-  { value: 'eur', label: 'EUR — Euro' },
-  { value: 'gbp', label: 'GBP — British Pound' },
-  { value: 'jpy', label: 'JPY — Japanese Yen' },
-  { value: 'twd', label: 'TWD — New Taiwan Dollar' }
-]
-
 // ── Formatting helpers ──
 
 function formatMemory(mb) {
@@ -138,10 +122,8 @@ function specLabel(product) {
   return `${product.cpu} vCPU / ${formatMemory(product.memory_mb)} RAM / ${product.disk_gb} GB SSD`
 }
 
-function formatPrice(cents, currency) {
-  const sym = { USD: '$', EUR: '€', GBP: '£' }
-  const prefix = sym[currency?.toUpperCase()] || currency + ' '
-  return `${prefix}${(cents / 100).toFixed(2)}`
+function formatPrice(cents) {
+  return `CNY ${(cents / 100).toFixed(2)}`
 }
 
 function formatCycleShort(cycle) {
@@ -156,7 +138,7 @@ function generateHostname() {
 // ── Submit ──
 
 const canSubmit = computed(() => {
-  return form.hostname && selectedProduct.value && form.os && form.currency
+  return form.hostname && selectedProduct.value
 })
 
 async function handleSubmit() {
@@ -171,12 +153,12 @@ async function handleSubmit() {
     const order = await createOrder({
       productID: product.id,
       billingCycle: product.billing_cycle,
-      currency: form.currency,
+      currency: ORDER_CURRENCY,
       priceAmount: product.price_amount,
       hostname: form.hostname,
       plan: product.slug,
       region: product.location,
-      os: form.os,
+      os: ORDER_OS,
       cpu: product.cpu,
       memoryMB: product.memory_mb,
       diskGB: product.disk_gb
@@ -252,7 +234,7 @@ async function handleSubmit() {
               </div>
               <div class="loc-meta">
                 <span class="loc-plans">{{ line.product_count }} {{ line.product_count === 1 ? 'plan' : 'plans' }}</span>
-                <span class="loc-from">from {{ formatPrice(line.min_price, line.min_currency) }}{{ formatCycleShort(line.min_cycle) }}</span>
+                <span class="loc-from">from {{ formatPrice(line.min_price) }}{{ formatCycleShort(line.min_cycle) }}</span>
               </div>
             </div>
           </div>
@@ -270,7 +252,7 @@ async function handleSubmit() {
           <div v-if="step > 2 && selectedProduct" class="chosen-pill">
             <span class="chosen-label">{{ selectedProduct.name }}</span>
             <span class="chosen-code">{{ specLabel(selectedProduct) }}</span>
-            <span class="chosen-price">{{ formatPrice(selectedProduct.price_amount, selectedProduct.currency) }}{{ formatCycleShort(selectedProduct.billing_cycle) }}</span>
+            <span class="chosen-price">{{ formatPrice(selectedProduct.price_amount) }}{{ formatCycleShort(selectedProduct.billing_cycle) }}</span>
           </div>
 
           <!-- Spec cards -->
@@ -301,7 +283,7 @@ async function handleSubmit() {
                   <span>{{ product.bandwidth_gb ? product.bandwidth_gb + ' GB' : 'Unlimited' }} BW</span>
                 </div>
               </div>
-              <div class="plan-price">{{ formatPrice(product.price_amount, product.currency) }}<span class="per-mo">{{ formatCycleShort(product.billing_cycle) }}</span></div>
+              <div class="plan-price">{{ formatPrice(product.price_amount) }}<span class="per-mo">{{ formatCycleShort(product.billing_cycle) }}</span></div>
             </div>
           </div>
         </section>
@@ -326,22 +308,6 @@ async function handleSubmit() {
                   </button>
                 </div>
               </div>
-              <div class="form-group">
-                <label>Operating System</label>
-                <select v-model="form.os" required>
-                  <option v-for="os in osList" :key="os.value" :value="os.value">{{ os.label }}</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label>Currency</label>
-                <select v-model="form.currency" required>
-                  <option v-for="c in currencies" :key="c.value" :value="c.value">{{ c.label }}</option>
-                </select>
-              </div>
-              <div class="form-group"></div>
             </div>
 
             <!-- Summary -->
@@ -364,13 +330,9 @@ async function handleSubmit() {
                   <span class="summary-label">Hostname</span>
                   <span class="summary-value mono">{{ form.hostname || '—' }}</span>
                 </div>
-                <div class="summary-row">
-                  <span class="summary-label">OS</span>
-                  <span class="summary-value">{{ osList.find(o => o.value === form.os)?.label || form.os }}</span>
-                </div>
                 <div class="summary-row total-row">
                   <span class="summary-label">{{ selectedProduct.billing_cycle === 'monthly' ? 'Monthly' : selectedProduct.billing_cycle === 'quarterly' ? 'Quarterly' : 'Annually' }}</span>
-                  <span class="summary-value price">{{ formatPrice(selectedProduct.price_amount, selectedProduct.currency) }}{{ formatCycleShort(selectedProduct.billing_cycle) }}</span>
+                  <span class="summary-value price">{{ formatPrice(selectedProduct.price_amount) }}{{ formatCycleShort(selectedProduct.billing_cycle) }}</span>
                 </div>
               </div>
             </div>

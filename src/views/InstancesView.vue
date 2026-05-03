@@ -253,7 +253,6 @@ function hasLiveState(id) {
             <div class="instance-specs">
               <span class="spec-tag plan-tag">{{ inst.plan }}</span>
               <span class="spec-tag">{{ specLabel(inst) }}</span>
-              <span class="spec-tag">{{ inst.os }}</span>
             </div>
 
             <div v-if="inst.ipv4 || inst.ipv6 || hasNatPorts(inst)" class="instance-ip">

@@ -318,19 +318,6 @@ function statusCopy(inst) {
                 <div class="config-item">
                   <div class="config-icon-wrap">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 2v20"></path>
-                      <path d="M2 5h20"></path>
-                      <path d="M2 19h20"></path>
-                    </svg>
-                  </div>
-                  <div class="config-detail">
-                    <span class="config-label">{{ t('instanceDetail.os') }}</span>
-                    <span class="config-value">{{ liveInstance.os }}</span>
-                  </div>
-                </div>
-                <div class="config-item">
-                  <div class="config-icon-wrap">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M4 7h16"></path>
                       <path d="M7 4v16"></path>
                       <path d="M17 4v16"></path>

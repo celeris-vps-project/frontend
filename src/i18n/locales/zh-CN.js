@@ -297,6 +297,7 @@ export default {
       paypal: 'PayPal',
       alipay: '支付宝',
       wechatPay: '微信支付',
+      epay: '易支付',
       custom: '自定义',
     },
     // Processing
@@ -345,6 +346,26 @@ export default {
   },
 
   // ─── Crypto Payment ───
+  epayPayment: {
+    title: '易支付收银台',
+    providerName: '易支付',
+    loading: '正在加载支付方式...',
+    loadFailed: '加载易支付支付信息失败',
+    noProvider: '暂无可用的易支付配置。',
+    amount: '金额',
+    backToCheckout: '← 返回结账',
+    continueToPay: '继续支付',
+    starting: '正在发起支付...',
+    startFailed: '发起易支付支付失败',
+    channels: {
+      alipay: '支付宝',
+      wxpay: '微信支付',
+      creditcard: '信用卡',
+      crypto: '加密货币',
+      paynow: 'PayNow',
+    },
+  },
+
   crypto: {
     title: '₮ USDT 支付',
     titleText: 'USDT 支付',

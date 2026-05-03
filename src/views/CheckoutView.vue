@@ -34,6 +34,7 @@ const providerMeta = {
   paypal:      { icon: '🅿', color: '#003087', labelKey: 'checkout.providerTypes.paypal' },
   alipay:      { icon: '💙', color: '#1677ff', labelKey: 'checkout.providerTypes.alipay' },
   wechat_pay:  { icon: '💚', color: '#07c160', labelKey: 'checkout.providerTypes.wechatPay' },
+  epay:        { icon: '易', color: '#7c3aed', labelKey: 'checkout.providerTypes.epay' },
   custom:      { icon: '🔗', color: '#888888', labelKey: 'checkout.providerTypes.custom' },
 }
 
@@ -95,18 +96,6 @@ function formatCycleLabel(cycle) {
   return map[cycle] || cycle || 'One-time'
 }
 
-const osList = {
-  'ubuntu-22.04': 'Ubuntu 22.04 LTS',
-  'ubuntu-24.04': 'Ubuntu 24.04 LTS',
-  'debian-12': 'Debian 12',
-  'centos-9': 'CentOS Stream 9',
-  'rocky-9': 'Rocky Linux 9',
-  'windows-2022': 'Windows Server 2022'
-}
-
-function osLabel(os) {
-  return osList[os] || os || '—'
-}
 
 // ── Provider selection ──
 
@@ -140,6 +129,17 @@ async function handlePay() {
     router.push({
       path: `/orders/${orderID}/pay`,
       query: code ? { coupon_code: code } : {}
+    })
+    return
+  }
+
+  if (provider?.type === 'epay') {
+    router.push({
+      path: `/orders/${orderID}/pay/epay`,
+      query: {
+        provider_id: provider.id,
+        ...(code ? { coupon_code: code } : {})
+      }
     })
     return
   }
@@ -278,10 +278,6 @@ function goBack() {
             <div class="spec-item">
               <span class="spec-label">{{ t('checkout.disk') }}</span>
               <span class="spec-value">{{ order.vps?.disk_gb || '—' }} GB NVMe</span>
-            </div>
-            <div class="spec-item">
-              <span class="spec-label">{{ t('checkout.operatingSystem') }}</span>
-              <span class="spec-value">{{ osLabel(order.vps?.os) }}</span>
             </div>
           </div>
         </div>

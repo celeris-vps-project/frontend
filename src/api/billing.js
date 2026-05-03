@@ -115,11 +115,11 @@ export async function getNode(id) {
 
 // ---- Order API (used internally for instance purchase flow) ----
 
-export async function createOrder({ productID, billingCycle, currency, priceAmount, hostname, plan, region, os, cpu, memoryMB, diskGB }) {
+export async function createOrder({ productID, billingCycle, priceAmount, hostname, plan, region, os = 'node-default', cpu, memoryMB, diskGB }) {
   const res = await request('POST', '/api/v1/orders', {
     product_id: productID,
     billing_cycle: billingCycle,
-    currency,
+    currency: 'cny',
     price_amount: priceAmount,
     hostname, plan, region, os,
     cpu, memory_mb: memoryMB, disk_gb: diskGB

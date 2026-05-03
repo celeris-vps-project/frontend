@@ -297,6 +297,7 @@ export default {
       paypal: 'PayPal',
       alipay: 'Alipay',
       wechatPay: 'WeChat Pay',
+      epay: 'EPay',
       custom: 'Custom',
     },
     // Processing
@@ -345,6 +346,26 @@ export default {
   },
 
   // ─── Crypto Payment ───
+  epayPayment: {
+    title: 'EPay Checkout',
+    providerName: 'EPay',
+    loading: 'Loading payment methods...',
+    loadFailed: 'Failed to load EPay payment data',
+    noProvider: 'No enabled EPay provider is available.',
+    amount: 'Amount',
+    backToCheckout: '← Back to Checkout',
+    continueToPay: 'Continue to Payment',
+    starting: 'Starting payment...',
+    startFailed: 'Failed to start EPay payment',
+    channels: {
+      alipay: 'Alipay',
+      wxpay: 'WeChat Pay',
+      creditcard: 'Credit Card',
+      crypto: 'Crypto',
+      paynow: 'PayNow',
+    },
+  },
+
   crypto: {
     title: '₮ USDT Payment',
     titleText: 'USDT Payment',

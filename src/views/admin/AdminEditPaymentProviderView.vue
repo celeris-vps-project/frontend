@@ -65,21 +65,12 @@ onMounted(async () => {
           cfg[field.key] = provider.config[field.key] != null ? String(provider.config[field.key]) : ''
         }
       }
-      if (provider.type === 'epay') {
-        cfg.timestamp_header = cfg.timestamp_header || 'timestamp'
-        cfg.signature_header = cfg.signature_header || 'signature'
-      }
       configValues.value = cfg
     } else if (provider.type === 'crypto_usdt') {
       // Fallback: init wallets even if no config
       const wallets = {}
       cryptoNetworks.forEach(n => { wallets[n] = '' })
       configValues.value = { wallets }
-    } else if (provider.type === 'epay') {
-      configValues.value = {
-        timestamp_header: 'timestamp',
-        signature_header: 'signature'
-      }
     }
   } catch (err) {
     error.value = err.message

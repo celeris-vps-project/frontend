@@ -63,6 +63,7 @@ const providerMeta = {
   paypal:      { icon: '🅿', color: '#003087', label: 'PayPal' },
   alipay:      { icon: '💙', color: '#1677ff', label: 'Alipay' },
   wechat_pay:  { icon: '💚', color: '#07c160', label: 'WeChat Pay' },
+  epay:        { icon: '易', color: '#7c3aed', label: 'EPay' },
   custom:      { icon: '🔗', color: '#888888', label: 'Custom' },
 }
 
@@ -222,6 +223,14 @@ async function handleUserPay() {
   // We need an order_id linked to this invoice — use invoice.order_id if available
   if (provider.type === 'crypto_usdt' && invoice.value.order_id) {
     router.push(`/orders/${invoice.value.order_id}/pay`)
+    return
+  }
+
+  if (provider.type === 'epay' && invoice.value.order_id) {
+    router.push({
+      path: `/orders/${invoice.value.order_id}/pay/epay`,
+      query: { provider_id: provider.id }
+    })
     return
   }
 
