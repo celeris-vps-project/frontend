@@ -123,33 +123,32 @@ async function handlePay() {
 
   const provider = selectedProvider.value
   const code = normalizedCouponCode.value
-
-  // For crypto_usdt, navigate to the dedicated crypto payment page (network selection + QR)
-  if (provider?.type === 'crypto_usdt') {
-    router.push({
-      path: `/orders/${orderID}/pay`,
-      query: code ? { coupon_code: code } : {}
-    })
-    return
-  }
-
-  if (provider?.type === 'epay') {
-    router.push({
-      path: `/orders/${orderID}/pay/epay`,
-      query: {
-        provider_id: provider.id,
-        ...(code ? { coupon_code: code } : {})
-      }
-    })
-    return
-  }
-
-  // For all other provider types (custom, stripe, paypal, etc.),
-  // call the Pay API with provider_id and handle the payment_url redirect.
   paying.value = true
   payError.value = ''
 
   try {
+    // For crypto_usdt, navigate to the dedicated crypto payment page (network selection + QR)
+    if (provider?.type === 'crypto_usdt') {
+      await router.push({
+        path: `/orders/${orderID}/pay`,
+        query: code ? { coupon_code: code } : {}
+      })
+      return
+    }
+
+    if (provider?.type === 'epay') {
+      await router.push({
+        path: `/orders/${orderID}/pay/epay`,
+        query: {
+          provider_id: provider.id,
+          ...(code ? { coupon_code: code } : {})
+        }
+      })
+      return
+    }
+
+    // For all other provider types (custom, stripe, paypal, etc.),
+    // call the Pay API with provider_id and handle the payment_url redirect.
     const result = await initiatePayment(orderID, null, provider?.id, code)
     invoiceID.value = result.invoice_id || ''
 
@@ -391,12 +390,13 @@ function goBack() {
               </p>
               <button
                 class="action-btn primary-btn pay-btn"
-                :class="{ 'provider-pay-btn': selectedProvider }"
+                :class="{ 'provider-pay-btn': selectedProvider, loading: paying }"
                 :style="selectedProvider ? { '--btn-color': getProviderMeta(selectedProvider.type).color } : {}"
                 @click="handlePay"
                 :disabled="!canPay"
               >
-                {{ payButtonText }}
+                <span v-if="paying" class="button-spinner"></span>
+                <span>{{ paying ? t('checkout.processingPayment') : payButtonText }}</span>
               </button>
             </div>
           </div>
@@ -901,6 +901,21 @@ function goBack() {
   font-weight: 700;
   text-align: center;
   border-radius: 10px;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.button-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 .provider-pay-btn {

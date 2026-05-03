@@ -24,6 +24,7 @@ const loadError = ref('')
 // Payment state: idle | selecting | paying | waiting | confirmed | failed
 const step = ref('selecting')
 const payError = ref('')
+const paymentStarting = ref(false)
 const chargeResult = ref(null)
 const qrDataUrl = ref('')
 const countdown = ref(0)
@@ -82,9 +83,9 @@ function selectedNetworkInfo() {
 
 // ── Pay button ──
 async function handlePay() {
-  if (!selectedNetwork.value && !normalizedCouponCode.value) return
+  if (paymentStarting.value || (!selectedNetwork.value && !normalizedCouponCode.value)) return
   payError.value = ''
-  step.value = 'paying'
+  paymentStarting.value = true
 
   try {
     const result = await initiatePayment(orderID, selectedNetwork.value, null, normalizedCouponCode.value)
@@ -116,6 +117,8 @@ async function handlePay() {
   } catch (err) {
     payError.value = err.message || t('crypto.paymentInitiationFailed')
     step.value = 'failed'
+  } finally {
+    paymentStarting.value = false
   }
 }
 
@@ -319,11 +322,19 @@ function goBack() {
             <button class="action-btn secondary-btn" @click="goBack">{{ t('crypto.backToCheckout') }}</button>
             <button
               class="action-btn primary-btn pay-btn"
-              :disabled="!selectedNetwork && !normalizedCouponCode"
+              :disabled="paymentStarting || (!selectedNetwork && !normalizedCouponCode)"
               @click="handlePay"
             >
-              {{ t('crypto.payAmount', { amount: formatUSDT(order.price_amount) }) }}
-              <span v-if="selectedNetwork" class="pay-network">
+              <span class="pay-btn-main">
+                <span v-if="paymentStarting" class="button-spinner"></span>
+                <span>
+                  {{ paymentStarting
+                    ? t('checkout.processingPayment')
+                    : t('crypto.payAmount', { amount: formatUSDT(order.price_amount) })
+                  }}
+                </span>
+              </span>
+              <span v-if="selectedNetwork && !paymentStarting" class="pay-network">
                 {{ t('crypto.via', { network: networkMeta[selectedNetwork]?.label || selectedNetwork }) }}
               </span>
             </button>
@@ -746,11 +757,29 @@ function goBack() {
   flex-direction: column;
   align-items: center;
   gap: 0.15rem;
+  min-height: 48px;
 }
 
 .pay-btn:hover:not(:disabled) {
   box-shadow: 0 6px 24px rgba(38, 161, 123, 0.45) !important;
   transform: translateY(-1px);
+}
+
+.pay-btn-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.button-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 .pay-network {

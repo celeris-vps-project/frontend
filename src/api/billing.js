@@ -17,34 +17,34 @@ export async function createInvoice(customerID, currency, billingCycle, periodSt
   if (billingCycle) body.billing_cycle = billingCycle
   if (periodStart) body.period_start = periodStart
   if (periodEnd) body.period_end = periodEnd
-  const res = await request('POST', '/api/v1/invoices', body)
+  const res = await request('POST', '/api/v1/admin/invoices', body)
   return res.data
 }
 
 export async function addLineItem(invoiceID, item) {
-  const res = await request('POST', `/api/v1/invoices/${invoiceID}/line-items`, item)
+  const res = await request('POST', `/api/v1/admin/invoices/${invoiceID}/line-items`, item)
   return res.data
 }
 
 export async function setTax(invoiceID, amount) {
-  const res = await request('PUT', `/api/v1/invoices/${invoiceID}/tax`, { amount })
+  const res = await request('PUT', `/api/v1/admin/invoices/${invoiceID}/tax`, { amount })
   return res.data
 }
 
 export async function issueInvoice(invoiceID, dueAt) {
   const body = {}
   if (dueAt) body.due_at = dueAt
-  const res = await request('POST', `/api/v1/invoices/${invoiceID}/issue`, body)
+  const res = await request('POST', `/api/v1/admin/invoices/${invoiceID}/issue`, body)
   return res.data
 }
 
 export async function recordPayment(invoiceID, amount) {
-  const res = await request('POST', `/api/v1/invoices/${invoiceID}/payments`, { amount })
+  const res = await request('POST', `/api/v1/admin/invoices/${invoiceID}/payments`, { amount })
   return res.data
 }
 
 export async function voidInvoice(invoiceID, reason) {
-  const res = await request('POST', `/api/v1/invoices/${invoiceID}/void`, { reason })
+  const res = await request('POST', `/api/v1/admin/invoices/${invoiceID}/void`, { reason })
   return res.data
 }
 
@@ -86,7 +86,7 @@ export async function getProduct(id) {
   return res.data
 }
 
-// ---- Region & Node API (public, no JWT) ----
+// ---- Region & Node API ----
 
 export async function listRegions() {
   const res = await request('GET', '/api/v1/regions', null, false)
@@ -104,12 +104,12 @@ export async function listProductLines() {
 
 export async function listNodes(location) {
   const qs = location ? `?location=${encodeURIComponent(location)}` : ''
-  const res = await request('GET', `/api/v1/nodes${qs}`, null, false)
+  const res = await request('GET', `/api/v1/admin/nodes${qs}`)
   return res.data || []
 }
 
 export async function getNode(id) {
-  const res = await request('GET', `/api/v1/nodes/${id}`, null, false)
+  const res = await request('GET', `/api/v1/admin/nodes/${id}`)
   return res.data
 }
 
@@ -131,6 +131,12 @@ export async function createOrder({ productID, billingCycle, priceAmount, hostna
 export async function getOrder(id) {
   const res = await request('GET', `/api/v1/orders/${id}`)
   return res.data
+}
+
+// GET /orders — list current user's orders.
+export async function listOrders() {
+  const res = await request('GET', '/api/v1/orders')
+  return res.data || []
 }
 
 // POST /orders/:id/pay — initiate payment for a pending order

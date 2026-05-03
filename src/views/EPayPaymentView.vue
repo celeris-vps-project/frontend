@@ -16,14 +16,10 @@ const provider = ref(null)
 const loading = ref(true)
 const paying = ref(false)
 const error = ref('')
-const selectedType = ref('')
+const selectedType = ref('alipay')
 
 const payTypes = [
   { value: 'alipay', labelKey: 'epayPayment.channels.alipay', mark: '支' },
-  { value: 'wxpay', labelKey: 'epayPayment.channels.wxpay', mark: '微' },
-  { value: 'creditcard', labelKey: 'epayPayment.channels.creditcard', mark: '卡' },
-  { value: 'crypto', labelKey: 'epayPayment.channels.crypto', mark: '链' },
-  { value: 'paynow', labelKey: 'epayPayment.channels.paynow', mark: 'Pay' },
 ]
 
 const couponCode = computed(() => String(route.query.coupon_code || '').trim())
@@ -57,17 +53,16 @@ async function startPayment() {
   try {
     const result = await initiatePayment(orderID, null, provider.value.id, couponCode.value, selectedType.value)
     if (result.status === 'success' || result.payable_amount === 0) {
-      router.push({ name: 'payment-result', params: { id: orderID }, query: { result: 'success' } })
+      await router.push({ name: 'payment-result', params: { id: orderID }, query: { result: 'success' } })
       return
     }
     if (result.payment_url && result.payment_url.startsWith('http')) {
       window.location.href = result.payment_url
       return
     }
-    router.push({ name: 'payment-result', params: { id: orderID } })
+    await router.push({ name: 'payment-result', params: { id: orderID } })
   } catch (err) {
     error.value = err.message || t('epayPayment.startFailed')
-  } finally {
     paying.value = false
   }
 }
@@ -109,6 +104,7 @@ function backToCheckout() {
               type="button"
               class="channel-card"
               :class="{ selected: selectedType === item.value }"
+              :disabled="paying"
               @click="selectedType = item.value"
             >
               <span class="channel-mark">{{ item.mark }}</span>
@@ -119,10 +115,12 @@ function backToCheckout() {
           <button
             v-if="provider"
             class="action-btn primary-btn pay-btn"
+            :class="{ loading: paying }"
             :disabled="!selectedType || paying"
             @click="startPayment"
           >
-            {{ paying ? t('epayPayment.starting') : t('epayPayment.continueToPay') }}
+            <span v-if="paying" class="button-spinner"></span>
+            <span>{{ paying ? t('epayPayment.starting') : t('epayPayment.continueToPay') }}</span>
           </button>
         </template>
       </section>
@@ -239,6 +237,11 @@ function backToCheckout() {
   background: var(--bg-input);
 }
 
+.channel-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .channel-card.selected {
   border-color: var(--accent);
   background: var(--accent-bg);
@@ -267,6 +270,20 @@ function backToCheckout() {
   width: 100%;
   min-height: 46px;
   font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.button-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 .spinner {

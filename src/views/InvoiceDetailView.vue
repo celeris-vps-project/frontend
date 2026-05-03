@@ -6,6 +6,7 @@ import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import {
   getInvoice,
+  listOrders,
   addLineItem,
   setTax,
   issueInvoice,
@@ -54,6 +55,7 @@ const providers = ref([])
 const providersLoading = ref(false)
 const selectedProvider = ref(null)
 const userPayStatus = ref('idle') // idle | processing | confirmed | failed
+const userPaymentStarting = ref(false)
 const userPayError = ref('')
 const pollTimer = ref(null)
 
@@ -78,6 +80,10 @@ function selectProvider(provider) {
 const payButtonText = computed(() => {
   if (!selectedProvider.value) return t('invoiceDetail.selectMethodFirst')
   return t('invoiceDetail.payWith', { name: selectedProvider.value.name })
+})
+
+const userPayButtonLoading = computed(() => {
+  return userPaymentStarting.value || userPayStatus.value === 'processing'
 })
 
 // Whether to show user payment section (non-admin + issued status)
@@ -216,53 +222,59 @@ const remaining = computed(() => {
 
 // ── User pay handler ──
 async function handleUserPay() {
-  if (!selectedProvider.value || userPayStatus.value === 'processing') return
+  if (!selectedProvider.value || userPaymentStarting.value || userPayStatus.value === 'processing') return
   const provider = selectedProvider.value
-
-  // For crypto_usdt, navigate to the dedicated crypto payment page
-  // We need an order_id linked to this invoice — use invoice.order_id if available
-  if (provider.type === 'crypto_usdt' && invoice.value.order_id) {
-    router.push(`/orders/${invoice.value.order_id}/pay`)
-    return
-  }
-
-  if (provider.type === 'epay' && invoice.value.order_id) {
-    router.push({
-      path: `/orders/${invoice.value.order_id}/pay/epay`,
-      query: { provider_id: provider.id }
-    })
-    return
-  }
-
-  // For all other provider types, call the Pay API with provider_id
-  if (!invoice.value.order_id) {
-    // If no order linked, record payment directly via the invoice API
-    userPayError.value = ''
-    userPayStatus.value = 'processing'
-    try {
-      invoice.value = await recordPayment(route.params.id, invoice.value.total - invoice.value.amount_paid)
-      userPayStatus.value = 'confirmed'
-    } catch (err) {
-      userPayError.value = err.message || 'Payment failed'
-      userPayStatus.value = 'failed'
-    }
-    return
-  }
-
   userPayError.value = ''
-  userPayStatus.value = 'processing'
+  userPaymentStarting.value = true
+  let keepPaymentStarting = false
+
   try {
-    const result = await initiatePayment(invoice.value.order_id, null, provider.id)
+    const orderID = await resolveInvoiceOrderID()
+
+    // For crypto_usdt, navigate to the dedicated crypto payment page
+    if (provider.type === 'crypto_usdt') {
+      await router.push(`/orders/${orderID}/pay`)
+      return
+    }
+
+    if (provider.type === 'epay') {
+      await router.push({
+        path: `/orders/${orderID}/pay/epay`,
+        query: { provider_id: provider.id }
+      })
+      return
+    }
+
+    const result = await initiatePayment(orderID, null, provider.id)
     if (result.payment_url && result.payment_url.startsWith('http')) {
+      keepPaymentStarting = true
       window.location.href = result.payment_url
       return
     }
     // Poll for payment confirmation
+    userPayStatus.value = 'processing'
     startInvoicePolling()
   } catch (err) {
     userPayError.value = err.message || 'Payment initiation failed'
     userPayStatus.value = 'failed'
+  } finally {
+    if (!keepPaymentStarting) {
+      userPaymentStarting.value = false
+    }
   }
+}
+
+async function resolveInvoiceOrderID() {
+  if (invoice.value?.order_id) {
+    return invoice.value.order_id
+  }
+  const orders = await listOrders()
+  const matched = orders.find((order) => order.invoice_id === invoice.value?.id)
+  if (!matched?.id) {
+    throw new Error('No linked order found for this invoice')
+  }
+  invoice.value = { ...invoice.value, order_id: matched.id }
+  return matched.id
 }
 
 function startInvoicePolling() {
@@ -610,12 +622,13 @@ function closeAllForms() {
                     <p class="pay-info-text">{{ t('invoiceDetail.payInfo') }}</p>
                     <button
                       class="action-btn primary-btn pay-btn"
-                      :class="{ 'provider-pay-btn': selectedProvider }"
+                      :class="{ 'provider-pay-btn': selectedProvider, loading: userPayButtonLoading }"
                       :style="selectedProvider ? { '--btn-color': getProviderMeta(selectedProvider.type).color } : {}"
                       @click="handleUserPay"
-                      :disabled="!selectedProvider"
+                      :disabled="!selectedProvider || userPayButtonLoading"
                     >
-                      {{ payButtonText }}
+                      <span v-if="userPayButtonLoading" class="button-spinner"></span>
+                      <span>{{ userPayButtonLoading ? t('invoiceDetail.processingPayment') : payButtonText }}</span>
                     </button>
                   </div>
                 </div>
@@ -1448,6 +1461,21 @@ function closeAllForms() {
   font-weight: 700;
   text-align: center;
   border-radius: 10px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.button-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 .provider-pay-btn {
