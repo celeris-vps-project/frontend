@@ -146,7 +146,19 @@ async function saveStock() {
   try {
     const newTotal = stockForm.value.unlimited ? -1 : Number(stockForm.value.totalSlots)
     if (newTotal < -1) throw new Error('Total slots must be -1 (unlimited) or >= 0')
-    const updated = await adjustProductStock(product.value.id, newTotal)
+    const result = await adjustProductStock(product.value.id, newTotal)
+    if (result.requires_confirmation && !result.saved) {
+      const confirmed = confirm(result.warning_message || 'This stock level exceeds current physical capacity. Continue?')
+      if (!confirmed) {
+        stockError.value = 'Stock update cancelled'
+        return
+      }
+    }
+    const finalResult = result.requires_confirmation && !result.saved
+      ? await adjustProductStock(product.value.id, newTotal, { confirmed: true })
+      : result
+    const updated = finalResult.data
+    if (!updated) throw new Error('Invalid stock update response')
     product.value.total_slots = updated.total_slots
     product.value.sold_slots = updated.sold_slots
     product.value.available_slots = updated.available_slots

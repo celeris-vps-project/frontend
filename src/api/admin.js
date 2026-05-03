@@ -224,9 +224,11 @@ export async function updateProductNetworkMode(id, networkMode, natPortCount = 1
   return res.data
 }
 
-export async function adjustProductStock(id, totalSlots) {
-  const res = await request('PUT', `/api/v1/admin/products/${id}/stock`, { total_slots: totalSlots })
-  return res.data
+export async function adjustProductStock(id, totalSlots, { confirmed = false } = {}) {
+  return await request('PUT', `/api/v1/admin/products/${id}/stock`, {
+    total_slots: totalSlots,
+    confirmed
+  })
 }
 
 // ---- Coupons / Activation Codes (admin management) ----
