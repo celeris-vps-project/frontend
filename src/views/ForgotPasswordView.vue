@@ -4,6 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { resetPassword, sendPasswordResetCode } from '../api/auth'
 import { translateError } from '../utils/errorHelper'
 import { useToast } from '../composables/useToast'
+import { useCooldown } from '../composables/useCooldown'
 
 const router = useRouter()
 const toast = useToast()
@@ -13,6 +14,7 @@ const password = ref('')
 const confirmPassword = ref('')
 const sending = ref(false)
 const resetting = ref(false)
+const { remaining: codeCooldown, coolingDown: codeCoolingDown, startCooldown: startCodeCooldown } = useCooldown(60)
 
 function validateEmail() {
   const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)
@@ -21,10 +23,11 @@ function validateEmail() {
 }
 
 async function requestCode() {
-  if (!validateEmail()) return
+  if (codeCoolingDown.value || !validateEmail()) return
   sending.value = true
   try {
     await sendPasswordResetCode(email.value)
+    startCodeCooldown()
     toast.success('验证码已发送，请检查邮箱。')
   } catch (err) {
     toast.error(translateError(err))
@@ -80,8 +83,8 @@ async function onSubmit() {
           <label for="code">邮箱验证码</label>
           <div class="code-row">
             <input id="code" v-model="code" type="text" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="6 位验证码" />
-            <button class="action-btn secondary-btn code-btn" type="button" :disabled="sending" @click="requestCode">
-              {{ sending ? '发送中...' : '发送验证码' }}
+            <button class="action-btn secondary-btn code-btn" type="button" :disabled="sending || codeCoolingDown" @click="requestCode">
+              {{ sending ? '发送中...' : codeCoolingDown ? `${codeCooldown}s` : '发送验证码' }}
             </button>
           </div>
         </div>

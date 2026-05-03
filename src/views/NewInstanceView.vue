@@ -92,6 +92,7 @@ function selectLine(lineID) {
 }
 
 function selectSpec(product) {
+  if (isSoldOut(product)) return
   selectedProduct.value = product
   generateHostname()
   step.value = 3
@@ -130,6 +131,16 @@ function formatCycleShort(cycle) {
   return map[cycle] || `/${cycle}`
 }
 
+function isSoldOut(product) {
+  return !product?.is_unlimited && product?.available_slots <= 0
+}
+
+function stockLabel(product) {
+  if (product?.is_unlimited) return 'Available'
+  if (isSoldOut(product)) return 'Sold out'
+  return `${product.available_slots} available`
+}
+
 function generateHostname() {
   form.hostname = `vps-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -137,7 +148,7 @@ function generateHostname() {
 // ── Submit ──
 
 const canSubmit = computed(() => {
-  return form.hostname && selectedProduct.value
+  return form.hostname && selectedProduct.value && !isSoldOut(selectedProduct.value)
 })
 
 async function handleSubmit() {
@@ -148,6 +159,11 @@ async function handleSubmit() {
   step.value = 4 // deploying overlay
   try {
     const product = selectedProduct.value
+    if (isSoldOut(product)) {
+      error.value = 'This plan is sold out.'
+      step.value = prevStep
+      return
+    }
     const result = await checkout(product.id, form.hostname, ORDER_OS)
     const orderID = result.order_id
 
@@ -248,10 +264,13 @@ async function handleSubmit() {
               v-for="product in lineProducts"
               :key="product.id"
               class="plan-card"
-              :class="{ selected: selectedProduct?.id === product.id }"
+              :class="{ selected: selectedProduct?.id === product.id, 'sold-out': isSoldOut(product) }"
               @click="selectSpec(product)"
             >
-              <div class="plan-name">{{ product.name }}</div>
+              <div class="plan-head">
+                <div class="plan-name">{{ product.name }}</div>
+                <span class="stock-badge" :class="{ empty: isSoldOut(product) }">{{ stockLabel(product) }}</span>
+              </div>
               <div class="plan-specs-detail">
                 <div class="plan-spec-row">
                   <span class="plan-spec-icon">⚡</span>
@@ -568,10 +587,47 @@ async function handleSubmit() {
   box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15);
 }
 
+.plan-card.sold-out {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.plan-card.sold-out:hover {
+  background: var(--bg-card);
+  border-color: var(--border-default);
+  transform: none;
+}
+
+.plan-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
 .plan-name {
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.stock-badge {
+  flex-shrink: 0;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.stock-badge.empty {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger);
 }
 
 .plan-specs-detail {

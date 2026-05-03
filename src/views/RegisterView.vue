@@ -12,6 +12,7 @@ import {
 import { useI18n } from 'vue-i18n'
 import { translateError } from '../utils/errorHelper'
 import { useToast } from '../composables/useToast'
+import { useCooldown } from '../composables/useCooldown'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -23,6 +24,7 @@ const verificationCode = ref('')
 const verificationRequired = ref(false)
 const loading = ref(false)
 const sendingCode = ref(false)
+const { remaining: codeCooldown, coolingDown: codeCoolingDown, startCooldown: startCodeCooldown } = useCooldown(60)
 
 onMounted(async () => {
   try {
@@ -101,10 +103,11 @@ async function onSubmit() {
 }
 
 async function requestCode() {
-  if (!email.value || !validateEmail(email.value)) return
+  if (codeCoolingDown.value || !email.value || !validateEmail(email.value)) return
   sendingCode.value = true
   try {
     await sendRegistrationCode(email.value)
+    startCodeCooldown()
     toast.success('验证码已发送，请检查邮箱。')
   } catch (err) {
     toast.error(translateError(err))
@@ -150,8 +153,8 @@ async function requestCode() {
               autocomplete="one-time-code"
               placeholder="6 位验证码"
             />
-            <button class="action-btn secondary-btn code-btn" type="button" :disabled="sendingCode" @click="requestCode">
-              {{ sendingCode ? '发送中...' : '发送验证码' }}
+            <button class="action-btn secondary-btn code-btn" type="button" :disabled="sendingCode || codeCoolingDown" @click="requestCode">
+              {{ sendingCode ? '发送中...' : codeCoolingDown ? `${codeCooldown}s` : '发送验证码' }}
             </button>
           </div>
         </div>
