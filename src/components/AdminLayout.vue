@@ -16,6 +16,7 @@ const navItems = [
   { path: '/admin/resource-pools', labelKey: 'nav.resourcePools', icon: 'pools' },
   { path: '/admin/products', labelKey: 'nav.products', icon: 'products' },
   { path: '/admin/coupons', labelKey: 'nav.coupons', icon: 'coupons' },
+  { path: '/admin/repairs', label: '人工处理', icon: 'repairs' },
   { path: '/admin/payment-providers', labelKey: 'nav.payment', icon: 'payment' },
   { path: '/admin/performance', labelKey: 'nav.performance', icon: 'performance' },
   { path: '/admin/general', label: '通用设置', icon: 'settings' },
@@ -103,6 +104,10 @@ function goToDashboard() {
             <path d="M9 9h.01"/>
             <path d="M15 15h.01"/>
             <path d="m9 15 6-6"/>
+          </svg>
+          <!-- 人工处理 -->
+          <svg v-else-if="item.icon === 'repairs'" class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1a5 5 0 0 1-6.6 6.6L7 20l-3-3 7.2-7.2a5 5 0 0 1 6.6-6.6l-3.1 3.1z"/>
           </svg>
           <!-- Performance -->
           <svg v-else-if="item.icon === 'performance'" class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

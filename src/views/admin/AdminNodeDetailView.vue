@@ -13,6 +13,7 @@ import {
   enableHostNode,
   disableHostNode,
   updateHostNodeNatEntry,
+  updateHostNodeSlots,
   revokeNodeToken,
   createNodeBootstrapToken,
   formatPercent,
@@ -88,6 +89,7 @@ async function fetchAll() {
     ])
     node.value = n
     natEntryForm.value = n.nat_entry_host || ''
+    slotsForm.value = n.total_slots || 0
     ips.value = ipList
 
     // Fetch products matching this node's location
@@ -147,6 +149,28 @@ async function handleEnqueueTask() {
 }
 
 const taskTypes = ['provision', 'deprovision', 'start', 'stop', 'reboot', 'suspend', 'unsuspend']
+
+// -- Physical slots --
+const slotsForm = ref(0)
+const slotsLoading = ref(false)
+const slotsError = ref('')
+const slotsSuccess = ref('')
+
+async function handleUpdateSlots() {
+  slotsError.value = ''
+  slotsSuccess.value = ''
+  slotsLoading.value = true
+  try {
+    const nextSlots = Number(slotsForm.value)
+    node.value = await updateHostNodeSlots(nodeID, Number.isFinite(nextSlots) ? nextSlots : 0)
+    slotsForm.value = node.value.total_slots || 0
+    slotsSuccess.value = 'Slots updated'
+  } catch (err) {
+    slotsError.value = err.message
+  } finally {
+    slotsLoading.value = false
+  }
+}
 
 // -- NAT entry host --
 const natEntryForm = ref('')
@@ -341,6 +365,28 @@ function goToProduct(id) {
                 </span>
               </span>
             </div>
+          </div>
+
+          <div class="inline-form slots-form">
+            <div class="form-row">
+              <label class="inline-label">{{ t('adminNodeDetail.totalSlots') }}</label>
+              <input
+                v-model.number="slotsForm"
+                type="number"
+                min="0"
+                class="form-input compact-input"
+              />
+              <button
+                class="action-btn primary-btn small-btn"
+                :disabled="slotsLoading || slotsForm < liveNode.used_slots"
+                @click="handleUpdateSlots"
+              >
+                {{ slotsLoading ? t('common.loading') : t('common.save') }}
+              </button>
+            </div>
+            <p class="form-hint">Must be at least current used slots.</p>
+            <p v-if="slotsError" class="form-error">{{ slotsError }}</p>
+            <p v-if="slotsSuccess" class="form-success">{{ slotsSuccess }}</p>
           </div>
 
           <div class="inline-form nat-entry-form">
@@ -783,6 +829,14 @@ credential_file: "node-credential.yaml"</pre>
 
 .nat-entry-form {
   margin-top: 1rem;
+}
+
+.slots-form {
+  margin-top: 1rem;
+}
+
+.compact-input {
+  width: 120px;
 }
 
 .nat-entry-form .form-input {

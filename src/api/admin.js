@@ -64,6 +64,11 @@ export async function updateHostNodeNatEntry(id, natEntryHost) {
   return res.data
 }
 
+export async function updateHostNodeSlots(id, totalSlots) {
+  const res = await request('PUT', `/api/v1/admin/host-nodes/${id}/slots`, { total_slots: Number(totalSlots) })
+  return res.data
+}
+
 export async function revokeNodeToken(id) {
   return await request('POST', `/api/v1/admin/nodes/${id}/revoke-token`)
 }
@@ -105,6 +110,18 @@ export async function addIP(nodeID, { address, version }) {
 
 export async function enqueueTask(nodeID, { type, spec }) {
   const res = await request('POST', `/api/v1/admin/host-nodes/${nodeID}/tasks`, { type, spec })
+  return res.data
+}
+
+// ---- Repair queue ----
+
+export async function listProvisioningRepairs() {
+  const res = await request('GET', '/api/v1/admin/repairs/provisioning')
+  return res.data || []
+}
+
+export async function repairProvisioning(orderID) {
+  const res = await request('POST', `/api/v1/admin/repairs/provisioning/${orderID}`)
   return res.data
 }
 
