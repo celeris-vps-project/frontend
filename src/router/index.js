@@ -32,6 +32,7 @@ import AdminCouponsView from '../views/admin/AdminCouponsView.vue'
 import AdminRepairsView from '../views/admin/AdminRepairsView.vue'
 import AdminGeneralSettingsView from '../views/admin/AdminGeneralSettingsView.vue'
 import AdminSMTPSettingsView from '../views/admin/AdminSMTPSettingsView.vue'
+import AdminMessageCenterView from '../views/admin/AdminMessageCenterView.vue'
 import { getToken, getRole } from '../api/auth'
 
 function paymentStatusRedirect(result) {
@@ -103,7 +104,8 @@ const routes = [
   // Admin Performance monitor
   { path: '/admin/performance', name: 'admin-performance', component: AdminPerformanceView, meta: { auth: true, admin: true } },
   { path: '/admin/general', name: 'admin-general-settings', component: AdminGeneralSettingsView, meta: { auth: true, admin: true } },
-  { path: '/admin/smtp', name: 'admin-smtp-settings', component: AdminSMTPSettingsView, meta: { auth: true, admin: true } }
+  { path: '/admin/smtp', name: 'admin-smtp-settings', component: AdminSMTPSettingsView, meta: { auth: true, admin: true } },
+  { path: '/admin/messages', name: 'admin-message-center', component: AdminMessageCenterView, meta: { auth: true, admin: true } }
 ]
 
 const router = createRouter({

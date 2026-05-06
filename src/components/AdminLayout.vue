@@ -1,14 +1,21 @@
 <script setup>
+import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { clearToken } from '../api/auth'
 import { useI18n } from 'vue-i18n'
 import { useLocale } from '../composables/useLocale'
 import ThemeSelector from './ThemeSelector.vue'
+import { pingMessageService } from '../api/message'
 
 const { t } = useI18n()
 const { toggleLocale, localeLabel } = useLocale()
 const router = useRouter()
 const route = useRoute()
+const showMessageCenter = ref(false)
+
+onMounted(async () => {
+  showMessageCenter.value = await pingMessageService()
+})
 
 const navItems = [
   { path: '/admin', labelKey: 'nav.overview', icon: 'overview' },
@@ -18,6 +25,7 @@ const navItems = [
   { path: '/admin/coupons', labelKey: 'nav.coupons', icon: 'coupons' },
   { path: '/admin/repairs', label: '人工处理', icon: 'repairs' },
   { path: '/admin/payment-providers', labelKey: 'nav.payment', icon: 'payment' },
+  { path: '/admin/messages', label: '消息管理', icon: 'message' },
   { path: '/admin/performance', labelKey: 'nav.performance', icon: 'performance' },
   { path: '/admin/general', label: '通用设置', icon: 'settings' },
   { path: '/admin/smtp', label: 'SMTP', icon: 'mail' },
@@ -59,6 +67,7 @@ function goToDashboard() {
           :to="item.path"
           class="nav-item"
           :class="{ active: isActive(item.path) }"
+          v-show="item.path !== '/admin/messages' || showMessageCenter"
         >
           <!-- Overview -->
           <svg v-if="item.icon === 'overview'" class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -124,6 +133,12 @@ function goToDashboard() {
           <svg v-else-if="item.icon === 'mail'" class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="5" width="18" height="14" rx="2"/>
             <path d="m3 7 9 6 9-6"/>
+          </svg>
+          <!-- Message Center -->
+          <svg v-else-if="item.icon === 'message'" class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M8 8h8"/>
+            <path d="M8 12h5"/>
           </svg>
           <span class="nav-label">{{ item.label || t(item.labelKey) }}</span>
           <span class="active-dot" v-if="isActive(item.path)"></span>
