@@ -171,6 +171,9 @@ export default {
     trafficRx: 'Inbound',
     trafficTx: 'Outbound',
     trafficPeriod: 'Current Billing Period',
+    trafficQuota: 'Traffic Quota',
+    trafficPercent: 'Quota Used',
+    trafficUnlimited: 'Unlimited',
     trafficNoData: 'No traffic records yet',
     // Power control
     powerControl: 'Power Control',
@@ -210,6 +213,9 @@ export default {
       terminated: 'This VPS is no longer available for start, stop, or suspend actions.',
       provisioning: 'The platform is still allocating resources and waiting for the node to confirm boot.',
       pending: 'The platform is still allocating resources and waiting for the node to confirm boot.',
+    },
+    suspendReasons: {
+      traffic_run_out: 'Suspension reason: this billing period traffic quota is exhausted.',
     },
     // Status notes
     instanceRunning: '✓ Instance is running',

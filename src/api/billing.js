@@ -134,7 +134,7 @@ export async function payOrder(id) {
 // ---- Instance API (matches backend /api/v1/instances) ----
 
 // POST /instances — purchase a new instance (customer_id from JWT)
-export async function purchaseInstance({ orderID, region, hostname, plan, os, cpu, memoryMB, diskGB }) {
+export async function purchaseInstance({ orderID, region, hostname, plan, os, cpu, memoryMB, diskGB, bandwidthGB = 0 }) {
   const res = await request('POST', '/api/v1/instances', {
     order_id: orderID,
     region,
@@ -143,7 +143,8 @@ export async function purchaseInstance({ orderID, region, hostname, plan, os, cp
     os,
     cpu,
     memory_mb: memoryMB,
-    disk_gb: diskGB
+    disk_gb: diskGB,
+    bandwidth_gb: bandwidthGB
   })
   return res.data
 }

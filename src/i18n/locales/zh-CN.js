@@ -171,6 +171,9 @@ export default {
     trafficRx: '入站',
     trafficTx: '出站',
     trafficPeriod: '当前账期',
+    trafficQuota: '流量额度',
+    trafficPercent: '额度占用',
+    trafficUnlimited: '不限量',
     trafficNoData: '暂无流量明细',
     // Power control
     powerControl: '电源控制',
@@ -210,6 +213,9 @@ export default {
       terminated: '这台 VPS 已不可再启动、停止或暂停。',
       provisioning: '平台正在分配资源，并等待节点确认启动结果。',
       pending: '平台正在分配资源，并等待节点确认启动结果。',
+    },
+    suspendReasons: {
+      traffic_run_out: '暂停原因：本账期流量额度已用尽。',
     },
     // Status notes
     instanceRunning: '✓ 实例运行中',

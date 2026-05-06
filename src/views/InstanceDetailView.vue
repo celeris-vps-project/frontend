@@ -39,21 +39,12 @@ async function fetchInstance() {
   error.value = ''
   trafficError.value = ''
   try {
-    trafficLoading.value = true
-    const [inst, usage] = await Promise.all([
-      getInstance(route.params.id),
-      getInstanceTrafficUsage(route.params.id).catch((err) => {
-        trafficError.value = err.message
-        return null
-      })
-    ])
-    instance.value = inst
-    trafficUsage.value = usage
+    instance.value = await getInstance(route.params.id)
+    await refreshTrafficUsage()
   } catch (err) {
     error.value = err.message
   } finally {
     loading.value = false
-    trafficLoading.value = false
   }
 }
 
@@ -223,6 +214,13 @@ function statusCopy(inst) {
   return t(`instanceDetail.statusCopy.${key}`)
 }
 
+function suspendReasonLabel(inst) {
+  if (controlStatus(inst) !== 'suspended' || !inst?.suspend_reason) return ''
+  const key = `instanceDetail.suspendReasons.${inst.suspend_reason}`
+  const label = t(key)
+  return label === key ? inst.suspend_reason : label
+}
+
 function shiftIsoDate(dateStr, days) {
   if (!dateStr) return ''
   const [year, month, day] = dateStr.slice(0, 10).split('-').map(Number)
@@ -259,12 +257,40 @@ function formatBytes(value) {
   return `${size.toFixed(precision)} ${units[unit]}`
 }
 
+function trafficLimitLabel(usage) {
+  if (!usage?.period_max) return t('instanceDetail.trafficUnlimited')
+  return `${formatBytes(usage.period_max)} (${usage.bandwidth_gb} GB)`
+}
+
+function trafficPercentLabel(usage) {
+  if (!usage?.period_max) return t('instanceDetail.trafficUnlimited')
+  const percent = Number(usage.usage_percent || 0)
+  if (!Number.isFinite(percent)) return '0%'
+  return `${percent >= 10 ? percent.toFixed(0) : percent.toFixed(1)}%`
+}
+
+function trafficMeterStyle(usage) {
+  if (!usage?.period_max) return { width: '0%' }
+  const percent = Math.max(0, Math.min(Number(usage.usage_percent || 0), 100))
+  return { width: `${percent}%` }
+}
+
+async function syncInstanceIfTrafficLimited(usage) {
+  if (!usage?.over_limit) return
+  try {
+    instance.value = await getInstance(route.params.id)
+  } catch {
+    // Traffic usage remains useful even if the follow-up status refresh fails.
+  }
+}
+
 function refreshTrafficUsage() {
   trafficLoading.value = true
   trafficError.value = ''
   return getInstanceTrafficUsage(route.params.id)
-    .then((usage) => {
+    .then(async (usage) => {
       trafficUsage.value = usage
+      await syncInstanceIfTrafficLimited(usage)
     })
     .catch((err) => {
       trafficError.value = err.message
@@ -321,6 +347,7 @@ function refreshTrafficUsage() {
             <span class="eyebrow">{{ t('instanceDetail.realtimeStatus') }}</span>
             <h2>{{ statusHeadline(liveInstance.status) }}</h2>
             <p>{{ statusCopy(liveInstance) }}</p>
+            <p v-if="suspendReasonLabel(liveInstance)" class="suspend-reason">{{ suspendReasonLabel(liveInstance) }}</p>
           </div>
 
           <div class="status-grid">
@@ -519,6 +546,24 @@ function refreshTrafficUsage() {
                   <div class="traffic-metric">
                     <span class="traffic-label">{{ t('instanceDetail.trafficPeriod') }}</span>
                     <span class="traffic-value mono">{{ formatTrafficPeriod(trafficUsage) }}</span>
+                  </div>
+                  <div class="traffic-metric">
+                    <span class="traffic-label">{{ t('instanceDetail.trafficQuota') }}</span>
+                    <span class="traffic-value">{{ trafficLimitLabel(trafficUsage) }}</span>
+                  </div>
+                  <div class="traffic-metric" :class="{ danger: trafficUsage?.over_limit }">
+                    <span class="traffic-label">{{ t('instanceDetail.trafficPercent') }}</span>
+                    <span class="traffic-value">{{ trafficPercentLabel(trafficUsage) }}</span>
+                  </div>
+                </div>
+
+                <div v-if="trafficUsage?.period_max" class="traffic-meter" :class="{ danger: trafficUsage?.over_limit }">
+                  <div class="traffic-meter-bar">
+                    <span :style="trafficMeterStyle(trafficUsage)"></span>
+                  </div>
+                  <div class="traffic-meter-meta">
+                    <span>{{ formatBytes(trafficUsage?.usage) }}</span>
+                    <span>{{ formatBytes(trafficUsage?.period_max) }}</span>
                   </div>
                 </div>
 
@@ -779,6 +824,11 @@ function refreshTrafficUsage() {
   line-height: 1.6;
 }
 
+.status-copy .suspend-reason {
+  color: var(--warning);
+  font-weight: 600;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1036,6 +1086,11 @@ function refreshTrafficUsage() {
   background: var(--bg-code);
 }
 
+.traffic-metric.danger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
 .traffic-label {
   font-size: 0.7rem;
   color: var(--text-muted);
@@ -1047,6 +1102,42 @@ function refreshTrafficUsage() {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.traffic-metric.danger .traffic-value {
+  color: var(--danger);
+}
+
+.traffic-meter {
+  margin-top: 1rem;
+}
+
+.traffic-meter-bar {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--border-subtle);
+}
+
+.traffic-meter-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.traffic-meter.danger .traffic-meter-bar span {
+  background: var(--danger);
+}
+
+.traffic-meter-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.45rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .traffic-daily-list {
