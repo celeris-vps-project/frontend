@@ -165,6 +165,13 @@ export default {
     sshCommand: 'SSH 命令',
     initialPassword: '初始密码',
     pendingAssignment: '等待分配',
+    trafficUsage: '流量用量',
+    loadingTraffic: '加载流量中...',
+    trafficTotal: '总用量',
+    trafficRx: '入站',
+    trafficTx: '出站',
+    trafficPeriod: '当前账期',
+    trafficNoData: '暂无流量明细',
     // Power control
     powerControl: '电源控制',
     start: '启动实例',

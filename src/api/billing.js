@@ -160,6 +160,12 @@ export async function getInstance(id) {
   return res.data
 }
 
+// GET /instances/:id/traffic
+export async function getInstanceTrafficUsage(id) {
+  const res = await request('GET', `/api/v1/instances/${id}/traffic`)
+  return res.data
+}
+
 // POST /instances/:id/start
 export async function startInstance(id) {
   const res = await request('POST', `/api/v1/instances/${id}/start`)

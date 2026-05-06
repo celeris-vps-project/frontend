@@ -6,6 +6,7 @@ import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import {
   getInstance,
+  getInstanceTrafficUsage,
   startInstance,
   stopInstance,
   suspendInstance,
@@ -19,8 +20,11 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const instance = ref(null)
+const trafficUsage = ref(null)
 const loading = ref(true)
+const trafficLoading = ref(false)
 const error = ref('')
+const trafficError = ref('')
 const actionLoading = ref('')
 const actionError = ref('')
 const actionSuccess = ref('')
@@ -33,12 +37,23 @@ onMounted(fetchInstance)
 async function fetchInstance() {
   loading.value = true
   error.value = ''
+  trafficError.value = ''
   try {
-    instance.value = await getInstance(route.params.id)
+    trafficLoading.value = true
+    const [inst, usage] = await Promise.all([
+      getInstance(route.params.id),
+      getInstanceTrafficUsage(route.params.id).catch((err) => {
+        trafficError.value = err.message
+        return null
+      })
+    ])
+    instance.value = inst
+    trafficUsage.value = usage
   } catch (err) {
     error.value = err.message
   } finally {
     loading.value = false
+    trafficLoading.value = false
   }
 }
 
@@ -93,6 +108,8 @@ const timelineRows = computed(() => {
     { key: 'terminated', label: t('instanceDetail.terminatedAt'), value: liveInstance.value.terminated_at, tone: 'terminated' },
   ].filter((row) => Boolean(row.value))
 })
+
+const trafficDailyRows = computed(() => trafficUsage.value?.daily || [])
 
 function specLabel(inst) {
   if (!inst) return ''
@@ -204,6 +221,57 @@ function statusCopy(inst) {
   if (!inst) return ''
   const key = ['running', 'stopped', 'paused', 'active', 'suspended', 'terminated', 'provisioning'].includes(inst.status) ? inst.status : 'active'
   return t(`instanceDetail.statusCopy.${key}`)
+}
+
+function shiftIsoDate(dateStr, days) {
+  if (!dateStr) return ''
+  const [year, month, day] = dateStr.slice(0, 10).split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  date.setUTCDate(date.getUTCDate() + days)
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function formatTrafficPeriod(usage) {
+  if (!usage?.period_start || !usage?.period_end) return '—'
+  const start = usage.period_start.slice(0, 10)
+  const end = shiftIsoDate(usage.period_end, -1)
+  return `${start} ~ ${end}`
+}
+
+function formatTrafficDate(dateStr) {
+  if (!dateStr) return '—'
+  return dateStr.slice(0, 10)
+}
+
+function formatBytes(value) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+  let size = Number(value || 0)
+  if (!Number.isFinite(size) || size <= 0) return '0 B'
+  let unit = 0
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024
+    unit += 1
+  }
+  const precision = size >= 10 || unit === 0 ? 0 : 1
+  return `${size.toFixed(precision)} ${units[unit]}`
+}
+
+function refreshTrafficUsage() {
+  trafficLoading.value = true
+  trafficError.value = ''
+  return getInstanceTrafficUsage(route.params.id)
+    .then((usage) => {
+      trafficUsage.value = usage
+    })
+    .catch((err) => {
+      trafficError.value = err.message
+    })
+    .finally(() => {
+      trafficLoading.value = false
+    })
 }
 </script>
 
@@ -415,6 +483,54 @@ function statusCopy(inst) {
                 <span class="ssh-label">{{ t('instanceDetail.sshCommand') }}</span>
                 <code class="ssh-cmd">{{ sshCommand(liveInstance) }}</code>
               </div>
+            </section>
+
+            <section class="config-section glass-card">
+              <div class="section-header-row">
+                <h2>{{ t('instanceDetail.trafficUsage') }}</h2>
+                <button class="text-btn" :disabled="trafficLoading" @click="refreshTrafficUsage">
+                  {{ trafficLoading ? t('common.loading') : t('common.retry') }}
+                </button>
+              </div>
+
+              <div v-if="trafficLoading" class="traffic-loading">
+                <div class="spinner-sm"></div>
+                <span>{{ t('instanceDetail.loadingTraffic') }}</span>
+              </div>
+
+              <div v-else-if="trafficError" class="traffic-error">
+                <p>{{ trafficError }}</p>
+              </div>
+
+              <template v-else>
+                <div class="traffic-summary-grid">
+                  <div class="traffic-metric">
+                    <span class="traffic-label">{{ t('instanceDetail.trafficTotal') }}</span>
+                    <span class="traffic-value">{{ formatBytes(trafficUsage?.usage) }}</span>
+                  </div>
+                  <div class="traffic-metric">
+                    <span class="traffic-label">{{ t('instanceDetail.trafficRx') }}</span>
+                    <span class="traffic-value">{{ formatBytes(trafficUsage?.rx) }}</span>
+                  </div>
+                  <div class="traffic-metric">
+                    <span class="traffic-label">{{ t('instanceDetail.trafficTx') }}</span>
+                    <span class="traffic-value">{{ formatBytes(trafficUsage?.tx) }}</span>
+                  </div>
+                  <div class="traffic-metric">
+                    <span class="traffic-label">{{ t('instanceDetail.trafficPeriod') }}</span>
+                    <span class="traffic-value mono">{{ formatTrafficPeriod(trafficUsage) }}</span>
+                  </div>
+                </div>
+
+                <div v-if="trafficDailyRows.length" class="traffic-daily-list">
+                  <div v-for="row in trafficDailyRows" :key="row.date" class="traffic-daily-row">
+                    <span class="traffic-day">{{ formatTrafficDate(row.date) }}</span>
+                    <span class="traffic-day-value mono">{{ formatBytes(row.usage) }}</span>
+                    <span class="traffic-day-meta mono">{{ formatBytes(row.rx) }} / {{ formatBytes(row.tx) }}</span>
+                  </div>
+                </div>
+                <p v-else class="traffic-empty">{{ t('instanceDetail.trafficNoData') }}</p>
+              </template>
             </section>
 
             <section class="config-section glass-card">
@@ -758,6 +874,33 @@ function statusCopy(inst) {
   color: var(--text-primary);
 }
 
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.section-header-row h2 {
+  margin: 0;
+}
+
+.text-btn {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.text-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
 .config-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -861,6 +1004,92 @@ function statusCopy(inst) {
   user-select: all;
   cursor: text;
   word-break: break-all;
+}
+
+.traffic-loading,
+.traffic-error,
+.traffic-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  color: var(--text-muted);
+}
+
+.traffic-error {
+  color: var(--danger);
+}
+
+.traffic-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.traffic-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.85rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-code);
+}
+
+.traffic-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.traffic-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.traffic-daily-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 1rem;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.traffic-daily-row {
+  display: grid;
+  grid-template-columns: minmax(72px, 96px) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  background: var(--bg-code);
+  border: 1px solid var(--border-subtle);
+}
+
+.traffic-day,
+.traffic-day-value,
+.traffic-day-meta {
+  font-size: 0.82rem;
+}
+
+.traffic-day {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.traffic-day-value {
+  color: var(--accent);
+  text-align: right;
+  font-weight: 600;
+}
+
+.traffic-day-meta {
+  color: var(--text-muted);
+  text-align: right;
 }
 
 .timeline {
@@ -1035,6 +1264,21 @@ function statusCopy(inst) {
 
   .config-grid {
     grid-template-columns: 1fr;
+  }
+
+  .traffic-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .traffic-daily-row {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+    align-items: start;
+  }
+
+  .traffic-day-value,
+  .traffic-day-meta {
+    text-align: left;
   }
 }
 </style>

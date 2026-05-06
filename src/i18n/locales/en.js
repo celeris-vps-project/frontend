@@ -165,6 +165,13 @@ export default {
     sshCommand: 'SSH Command',
     initialPassword: 'Initial Password',
     pendingAssignment: 'Pending assignment',
+    trafficUsage: 'Traffic Usage',
+    loadingTraffic: 'Loading traffic...',
+    trafficTotal: 'Total Usage',
+    trafficRx: 'Inbound',
+    trafficTx: 'Outbound',
+    trafficPeriod: 'Current Billing Period',
+    trafficNoData: 'No traffic records yet',
     // Power control
     powerControl: 'Power Control',
     start: 'Start Instance',
