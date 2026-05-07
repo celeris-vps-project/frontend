@@ -1106,7 +1106,7 @@ export default {
     ALREADY_PAID: 'Already paid, operation not allowed',
     COUPON_INVALID: 'Coupon is not available',
     COUPON_EXHAUSTED: 'Coupon redemption limit reached',
-
+    COUPON_USER_LIMITED: 'User coupon limit reached',
     // ── Generic ──
     INTERNAL_ERROR: 'Internal server error',
     WEBHOOK_FAILED: 'Webhook verification failed',

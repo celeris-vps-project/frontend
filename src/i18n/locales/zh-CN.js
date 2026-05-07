@@ -1098,6 +1098,7 @@ export default {
     ALREADY_PAID: '已完成支付，无法操作',
     COUPON_INVALID: '激活码不可用',
     COUPON_EXHAUSTED: '激活码已被领完',
+    COUPON_USER_LIMITED: '用户激活码使用上限',
 
     // ── Generic ──
     INTERNAL_ERROR: '服务器内部错误',
