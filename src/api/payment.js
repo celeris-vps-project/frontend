@@ -43,7 +43,7 @@ export async function preApplyCoupon(couponCode, { productId, originalAmount }) 
   const res = await request('POST', `/api/v1/coupons/pre/applied`, {
     product_id: productId,
     original_amount: Number(originalAmount),
-    code: encodeURIComponent(code),
+    code: encodeURIComponent(code).toUpperCase(),
   })
   return res.data
 }
