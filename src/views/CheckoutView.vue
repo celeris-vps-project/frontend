@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
@@ -20,12 +20,19 @@ const paymentStatus = ref('idle') // idle | processing | confirmed | failed
 const pollTimer = ref(null)
 const invoiceID = ref('') // linked billing invoice ID
 const couponCode = ref('')
+const appliedCouponCode = ref('')
 
 // ── Payment providers ──
 const providers = ref([])
 const providersLoading = ref(true)
 const selectedProvider = ref(null)
 const normalizedCouponCode = computed(() => couponCode.value.trim())
+const couponApplied = computed(() => !!appliedCouponCode.value && appliedCouponCode.value === normalizedCouponCode.value)
+const canApplyCoupon = computed(() => !paying.value && !!normalizedCouponCode.value && !couponApplied.value)
+
+watch(normalizedCouponCode, (code) => {
+  if (!code) appliedCouponCode.value = ''
+})
 
 // ── Provider type metadata (icon, color, label) ──
 const providerMeta = {
@@ -103,6 +110,18 @@ function selectProvider(provider) {
   selectedProvider.value = provider
 }
 
+function applyCouponCode() {
+  if (!normalizedCouponCode.value) return
+  appliedCouponCode.value = normalizedCouponCode.value
+  couponCode.value = normalizedCouponCode.value
+  payError.value = ''
+}
+
+function clearCouponCode() {
+  couponCode.value = ''
+  appliedCouponCode.value = ''
+}
+
 // ── Pay button text ──
 const payButtonText = computed(() => {
   if (!selectedProvider.value) {
@@ -122,7 +141,10 @@ async function handlePay() {
   if (paying.value || paymentStatus.value === 'confirmed' || !canPay.value) return
 
   const provider = selectedProvider.value
-  const code = normalizedCouponCode.value
+  if (normalizedCouponCode.value && !couponApplied.value) {
+    applyCouponCode()
+  }
+  const code = appliedCouponCode.value
   paying.value = true
   payError.value = ''
 
@@ -313,24 +335,38 @@ function goBack() {
             <div class="coupon-box">
               <label class="coupon-label" for="coupon-code">{{ t('checkout.activationCode') }}</label>
               <div class="coupon-control">
-                <input
-                  id="coupon-code"
-                  v-model="couponCode"
-                  type="text"
-                  class="coupon-input"
-                  :placeholder="t('checkout.activationCodePlaceholder')"
-                  autocomplete="off"
-                />
+                <div class="coupon-input-wrap">
+                  <input
+                    id="coupon-code"
+                    v-model="couponCode"
+                    type="text"
+                    class="coupon-input"
+                    :placeholder="t('checkout.activationCodePlaceholder')"
+                    autocomplete="off"
+                    @keyup.enter="applyCouponCode"
+                  />
+                  <button
+                    v-if="couponCode"
+                    type="button"
+                    class="coupon-clear"
+                    :title="t('common.cancel')"
+                    @click="clearCouponCode"
+                  >
+                    ×
+                  </button>
+                </div>
                 <button
-                  v-if="couponCode"
                   type="button"
-                  class="coupon-clear"
-                  :title="t('common.cancel')"
-                  @click="couponCode = ''"
+                  class="coupon-apply"
+                  :disabled="!canApplyCoupon"
+                  @click="applyCouponCode"
                 >
-                  ×
+                  {{ couponApplied ? t('checkout.couponApplied') : t('checkout.applyCoupon') }}
                 </button>
               </div>
+              <p v-if="couponApplied" class="coupon-status">
+                {{ t('checkout.couponAppliedCode', { code: appliedCouponCode }) }}
+              </p>
             </div>
 
             <div class="pay-divider compact"></div>
@@ -679,7 +715,15 @@ function goBack() {
 }
 
 .coupon-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.coupon-input-wrap {
   position: relative;
+  min-width: 0;
 }
 
 .coupon-input {
@@ -724,6 +768,46 @@ function goBack() {
 .coupon-clear:hover {
   color: var(--text-primary);
   background: var(--bg-card-hover);
+}
+
+.coupon-apply {
+  min-width: 82px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 0.9rem;
+  white-space: nowrap;
+}
+
+.coupon-apply:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.coupon-apply:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.coupon-status {
+  margin: 0;
+  color: var(--success);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+@media (max-width: 420px) {
+  .coupon-control {
+    grid-template-columns: 1fr;
+  }
+
+  .coupon-apply {
+    min-height: 40px;
+  }
 }
 
 /* ─── Provider Selection Section ─── */

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import QRCode from 'qrcode'
@@ -18,6 +18,7 @@ const order = ref(null)
 const networks = ref([])
 const selectedNetwork = ref('')
 const couponCode = ref(typeof route.query.coupon_code === 'string' ? route.query.coupon_code : '')
+const appliedCouponCode = ref(typeof route.query.coupon_code === 'string' ? route.query.coupon_code.trim() : '')
 const loading = ref(true)
 const loadError = ref('')
 
@@ -41,6 +42,12 @@ const networkMeta = {
 }
 
 const normalizedCouponCode = computed(() => couponCode.value.trim())
+const couponApplied = computed(() => !!appliedCouponCode.value && appliedCouponCode.value === normalizedCouponCode.value)
+const canApplyCoupon = computed(() => !paymentStarting.value && !!normalizedCouponCode.value && !couponApplied.value)
+
+watch(normalizedCouponCode, (code) => {
+  if (!code) appliedCouponCode.value = ''
+})
 
 // ── Load data on mount ──
 onMounted(async () => {
@@ -81,14 +88,29 @@ function selectedNetworkInfo() {
   return networks.value.find(n => n.network === selectedNetwork.value) || null
 }
 
+function applyCouponCode() {
+  if (!normalizedCouponCode.value) return
+  appliedCouponCode.value = normalizedCouponCode.value
+  couponCode.value = normalizedCouponCode.value
+  payError.value = ''
+}
+
+function clearCouponCode() {
+  couponCode.value = ''
+  appliedCouponCode.value = ''
+}
+
 // ── Pay button ──
 async function handlePay() {
   if (paymentStarting.value || (!selectedNetwork.value && !normalizedCouponCode.value)) return
   payError.value = ''
+  if (normalizedCouponCode.value && !couponApplied.value) {
+    applyCouponCode()
+  }
   paymentStarting.value = true
 
   try {
-    const result = await initiatePayment(orderID, selectedNetwork.value, null, normalizedCouponCode.value)
+    const result = await initiatePayment(orderID, selectedNetwork.value, null, appliedCouponCode.value)
     chargeResult.value = result
 
     if (result.status === 'success' || result.payable_amount === 0) {
@@ -276,24 +298,38 @@ function goBack() {
           <div class="coupon-box">
             <label class="coupon-label" for="crypto-coupon-code">{{ t('checkout.activationCode') }}</label>
             <div class="coupon-control">
-              <input
-                id="crypto-coupon-code"
-                v-model="couponCode"
-                type="text"
-                class="coupon-input"
-                :placeholder="t('checkout.activationCodePlaceholder')"
-                autocomplete="off"
-              />
+              <div class="coupon-input-wrap">
+                <input
+                  id="crypto-coupon-code"
+                  v-model="couponCode"
+                  type="text"
+                  class="coupon-input"
+                  :placeholder="t('checkout.activationCodePlaceholder')"
+                  autocomplete="off"
+                  @keyup.enter="applyCouponCode"
+                />
+                <button
+                  v-if="couponCode"
+                  type="button"
+                  class="coupon-clear"
+                  :title="t('common.cancel')"
+                  @click="clearCouponCode"
+                >
+                  ×
+                </button>
+              </div>
               <button
-                v-if="couponCode"
                 type="button"
-                class="coupon-clear"
-                :title="t('common.cancel')"
-                @click="couponCode = ''"
+                class="coupon-apply"
+                :disabled="!canApplyCoupon"
+                @click="applyCouponCode"
               >
-                ×
+                {{ couponApplied ? t('checkout.couponApplied') : t('checkout.applyCoupon') }}
               </button>
             </div>
+            <p v-if="couponApplied" class="coupon-status">
+              {{ t('checkout.couponAppliedCode', { code: appliedCouponCode }) }}
+            </p>
           </div>
 
           <div class="network-grid">
@@ -604,7 +640,15 @@ function goBack() {
 }
 
 .coupon-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.coupon-input-wrap {
   position: relative;
+  min-width: 0;
 }
 
 .coupon-input {
@@ -649,6 +693,46 @@ function goBack() {
 .coupon-clear:hover {
   color: var(--text-primary);
   background: var(--bg-card-hover);
+}
+
+.coupon-apply {
+  min-width: 82px;
+  border: 1px solid #26a17b;
+  border-radius: 10px;
+  background: rgba(38, 161, 123, 0.12);
+  color: #26a17b;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 0.9rem;
+  white-space: nowrap;
+}
+
+.coupon-apply:hover:not(:disabled) {
+  background: #26a17b;
+  color: #fff;
+}
+
+.coupon-apply:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.coupon-status {
+  margin: 0;
+  color: var(--success);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+@media (max-width: 420px) {
+  .coupon-control {
+    grid-template-columns: 1fr;
+  }
+
+  .coupon-apply {
+    min-height: 40px;
+  }
 }
 
 /* ─── Network Grid ─── */
