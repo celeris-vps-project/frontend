@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
 import { getOrder, formatMoney } from '../api/billing.js'
-import { getPaymentProviders, initiatePayment } from '../api/payment.js'
+import { getPaymentProviders, initiatePayment, preApplyCoupon } from '../api/payment.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,12 +17,17 @@ const loading = ref(true)
 const paying = ref(false)
 const error = ref('')
 const selectedType = ref('alipay')
+const couponPreview = ref(null)
+const couponPreviewError = ref('')
 
 const payTypes = [
   { value: 'alipay', labelKey: 'epayPayment.channels.alipay', mark: '支' },
 ]
 
 const couponCode = computed(() => String(route.query.coupon_code || '').trim())
+const couponDiscountAmount = computed(() => Math.max(0, Number(couponPreview.value?.discount_amount || 0)))
+const payableAmount = computed(() => Number(couponPreview.value?.final_amount ?? order.value?.price_amount ?? 0))
+const hasDiscount = computed(() => !!couponPreview.value && couponDiscountAmount.value > 0)
 
 onMounted(async () => {
   try {
@@ -38,6 +43,24 @@ onMounted(async () => {
 
     if (!provider.value) {
       error.value = t('epayPayment.noProvider')
+    }
+
+    if (couponCode.value && orderData?.product_id && orderData.price_amount != null) {
+      try {
+        const result = await preApplyCoupon(couponCode.value, {
+          productId: orderData.product_id,
+          originalAmount: orderData.price_amount
+        })
+        const finalAmount = Number(result?.final_amount ?? orderData.price_amount)
+        couponPreview.value = {
+          ...result,
+          final_amount: finalAmount,
+          discount_amount: Math.max(0, Number(orderData.price_amount) - finalAmount)
+        }
+      } catch (err) {
+        couponPreview.value = null
+        couponPreviewError.value = err.message || t('checkout.couponApplyFailed')
+      }
     }
   } catch (err) {
     error.value = err.message || t('epayPayment.loadFailed')
@@ -91,7 +114,11 @@ function backToCheckout() {
             </div>
             <div v-if="order" class="amount-box">
               <span>{{ t('epayPayment.amount') }}</span>
-              <strong>{{ formatMoney(order.price_amount, order.currency) }}</strong>
+              <strong>{{ formatMoney(payableAmount, order.currency) }}</strong>
+              <small v-if="hasDiscount">
+                {{ t('checkout.discount') }} -{{ formatMoney(couponDiscountAmount, order.currency) }}
+              </small>
+              <small v-else-if="couponPreviewError" class="amount-error">{{ couponPreviewError }}</small>
             </div>
           </header>
 
@@ -199,6 +226,19 @@ function backToCheckout() {
 .amount-box strong {
   color: var(--text-primary);
   font-size: 1.5rem;
+}
+
+.amount-box small {
+  color: var(--success);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.amount-box .amount-error {
+  color: var(--danger);
+  max-width: 260px;
+  text-align: right;
+  line-height: 1.35;
 }
 
 .error-box {

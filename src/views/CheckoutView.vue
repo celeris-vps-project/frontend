@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
 import { getOrder } from '../api/billing.js'
-import { getPaymentProviders, initiatePayment } from '../api/payment.js'
+import { getPaymentProviders, initiatePayment, preApplyCoupon } from '../api/payment.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +21,8 @@ const pollTimer = ref(null)
 const invoiceID = ref('') // linked billing invoice ID
 const couponCode = ref('')
 const appliedCouponCode = ref('')
+const couponPreview = ref(null)
+const couponApplying = ref(false)
 
 // ── Payment providers ──
 const providers = ref([])
@@ -28,10 +30,17 @@ const providersLoading = ref(true)
 const selectedProvider = ref(null)
 const normalizedCouponCode = computed(() => couponCode.value.trim())
 const couponApplied = computed(() => !!appliedCouponCode.value && appliedCouponCode.value === normalizedCouponCode.value)
-const canApplyCoupon = computed(() => !paying.value && !!normalizedCouponCode.value && !couponApplied.value)
+const couponDiscountAmount = computed(() => Math.max(0, Number(couponPreview.value?.discount_amount || 0)))
+const payableAmount = computed(() => Number(couponPreview.value?.final_amount ?? order.value?.price_amount ?? 0))
+const hasDiscount = computed(() => couponApplied.value && couponDiscountAmount.value > 0)
+const canApplyCoupon = computed(() => !paying.value && !couponApplying.value && !!normalizedCouponCode.value && !couponApplied.value)
 
 watch(normalizedCouponCode, (code) => {
-  if (!code) appliedCouponCode.value = ''
+  if (!code || code !== appliedCouponCode.value) {
+    appliedCouponCode.value = ''
+    couponPreview.value = null
+    payError.value = ''
+  }
 })
 
 // ── Provider type metadata (icon, color, label) ──
@@ -110,16 +119,38 @@ function selectProvider(provider) {
   selectedProvider.value = provider
 }
 
-function applyCouponCode() {
+async function applyCouponCode() {
   if (!normalizedCouponCode.value) return
-  appliedCouponCode.value = normalizedCouponCode.value
-  couponCode.value = normalizedCouponCode.value
+  if (!order.value?.product_id || order.value.price_amount == null) return
+  couponApplying.value = true
   payError.value = ''
+  try {
+    const result = await preApplyCoupon(normalizedCouponCode.value, {
+      productId: order.value.product_id,
+      originalAmount: order.value.price_amount
+    })
+    const finalAmount = Number(result?.final_amount ?? order.value.price_amount)
+    couponPreview.value = {
+      ...result,
+      final_amount: finalAmount,
+      discount_amount: Math.max(0, Number(order.value.price_amount) - finalAmount)
+    }
+    appliedCouponCode.value = normalizedCouponCode.value
+    couponCode.value = normalizedCouponCode.value
+  } catch (err) {
+    appliedCouponCode.value = ''
+    couponPreview.value = null
+    payError.value = err.message || t('checkout.couponApplyFailed')
+  } finally {
+    couponApplying.value = false
+  }
 }
 
 function clearCouponCode() {
   couponCode.value = ''
   appliedCouponCode.value = ''
+  couponPreview.value = null
+  payError.value = ''
 }
 
 // ── Pay button text ──
@@ -142,7 +173,8 @@ async function handlePay() {
 
   const provider = selectedProvider.value
   if (normalizedCouponCode.value && !couponApplied.value) {
-    applyCouponCode()
+    await applyCouponCode()
+    if (!couponApplied.value) return
   }
   const code = appliedCouponCode.value
   paying.value = true
@@ -322,6 +354,14 @@ function goBack() {
               <span class="pay-label">{{ t('checkout.amount') }}</span>
               <span class="pay-value price-large">{{ formatPrice(order.price_amount, order.currency) }}</span>
             </div>
+            <div v-if="hasDiscount" class="pay-row discount-row">
+              <span class="pay-label">{{ t('checkout.discount') }}</span>
+              <span class="pay-value discount-value">-{{ formatPrice(couponDiscountAmount, order.currency) }}</span>
+            </div>
+            <div v-if="couponApplied" class="pay-row payable-row">
+              <span class="pay-label">{{ t('checkout.payableAmount') }}</span>
+              <span class="pay-value price-large">{{ formatPrice(payableAmount, order.currency) }}</span>
+            </div>
             <div class="pay-row">
               <span class="pay-label">{{ t('checkout.currencyLabel') }}</span>
               <span class="pay-value">{{ (order.currency || '').toUpperCase() }}</span>
@@ -343,6 +383,7 @@ function goBack() {
                     class="coupon-input"
                     :placeholder="t('checkout.activationCodePlaceholder')"
                     autocomplete="off"
+                    :disabled="couponApplying"
                     @keyup.enter="applyCouponCode"
                   />
                   <button
@@ -361,12 +402,19 @@ function goBack() {
                   :disabled="!canApplyCoupon"
                   @click="applyCouponCode"
                 >
-                  {{ couponApplied ? t('checkout.couponApplied') : t('checkout.applyCoupon') }}
+                  {{ couponApplying ? t('checkout.applyingCoupon') : (couponApplied ? t('checkout.couponApplied') : t('checkout.applyCoupon')) }}
                 </button>
               </div>
               <p v-if="couponApplied" class="coupon-status">
                 {{ t('checkout.couponAppliedCode', { code: appliedCouponCode }) }}
+                <span v-if="hasDiscount">
+                  {{ t('checkout.couponDiscountSummary', {
+                    discount: formatPrice(couponDiscountAmount, order.currency),
+                    amount: formatPrice(payableAmount, order.currency)
+                  }) }}
+                </span>
               </p>
+              <p v-else-if="payError && normalizedCouponCode" class="coupon-error">{{ payError }}</p>
             </div>
 
             <div class="pay-divider compact"></div>
@@ -421,7 +469,7 @@ function goBack() {
               <p class="pay-info">
                 {{ selectedProvider
                   ? t('checkout.payInfo')
-                  : (normalizedCouponCode ? t('checkout.couponOnlyHint') : t('checkout.selectMethodHint'))
+                  : (couponApplied && payableAmount === 0 ? t('checkout.couponOnlyHint') : t('checkout.selectMethodHint'))
                 }}
               </p>
               <button
@@ -669,6 +717,16 @@ function goBack() {
   align-items: center;
 }
 
+.discount-row .pay-label,
+.discount-value {
+  color: var(--success);
+}
+
+.payable-row {
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--divider);
+}
+
 .pay-label {
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -796,6 +854,20 @@ function goBack() {
 .coupon-status {
   margin: 0;
   color: var(--success);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.coupon-status span {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.coupon-error {
+  margin: 0;
+  color: var(--danger);
   font-size: 0.8rem;
   font-weight: 600;
 }

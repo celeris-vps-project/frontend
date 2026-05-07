@@ -29,6 +29,25 @@ export async function getPaymentProviders() {
 }
 
 /**
+ * Preview a coupon/activation code for the current order price.
+ * POST /api/v1/coupons/:id/pre/applied
+ *
+ * This validates and calculates the discount without redeeming the coupon.
+ *
+ * @param {string} couponCode
+ * @param {{ productId: string, originalAmount: number }} params
+ * @returns {{ applied: boolean, final_amount: number, coupon_id: string, code: string }}
+ */
+export async function preApplyCoupon(couponCode, { productId, originalAmount }) {
+  const code = String(couponCode || '').trim()
+  const res = await request('POST', `/api/v1/coupons/${encodeURIComponent(code)}/pre/applied`, {
+    product_id: productId,
+    original_amount: Number(originalAmount)
+  })
+  return res.data
+}
+
+/**
  * Initiate a payment for an order.
  * POST /api/v1/orders/:id/pay
  *

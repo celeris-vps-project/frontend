@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import QRCode from 'qrcode'
 import AppLayout from '../components/AppLayout.vue'
 import { getOrder } from '../api/billing.js'
-import { getPaymentNetworks, initiatePayment } from '../api/payment.js'
+import { getPaymentNetworks, initiatePayment, preApplyCoupon } from '../api/payment.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -18,7 +18,9 @@ const order = ref(null)
 const networks = ref([])
 const selectedNetwork = ref('')
 const couponCode = ref(typeof route.query.coupon_code === 'string' ? route.query.coupon_code : '')
-const appliedCouponCode = ref(typeof route.query.coupon_code === 'string' ? route.query.coupon_code.trim() : '')
+const appliedCouponCode = ref('')
+const couponPreview = ref(null)
+const couponApplying = ref(false)
 const loading = ref(true)
 const loadError = ref('')
 
@@ -43,10 +45,17 @@ const networkMeta = {
 
 const normalizedCouponCode = computed(() => couponCode.value.trim())
 const couponApplied = computed(() => !!appliedCouponCode.value && appliedCouponCode.value === normalizedCouponCode.value)
-const canApplyCoupon = computed(() => !paymentStarting.value && !!normalizedCouponCode.value && !couponApplied.value)
+const couponDiscountAmount = computed(() => Math.max(0, Number(couponPreview.value?.discount_amount || 0)))
+const payableAmount = computed(() => Number(couponPreview.value?.final_amount ?? order.value?.price_amount ?? 0))
+const hasDiscount = computed(() => couponApplied.value && couponDiscountAmount.value > 0)
+const canApplyCoupon = computed(() => !paymentStarting.value && !couponApplying.value && !!normalizedCouponCode.value && !couponApplied.value)
 
 watch(normalizedCouponCode, (code) => {
-  if (!code) appliedCouponCode.value = ''
+  if (!code || code !== appliedCouponCode.value) {
+    appliedCouponCode.value = ''
+    couponPreview.value = null
+    payError.value = ''
+  }
 })
 
 // ── Load data on mount ──
@@ -66,6 +75,10 @@ onMounted(async () => {
     // Default select first network
     if (networkData.length > 0) {
       selectedNetwork.value = networkData[0].network
+    }
+
+    if (normalizedCouponCode.value) {
+      await applyCouponCode()
     }
   } catch (err) {
     loadError.value = err.message || t('crypto.failedToLoadPayment')
@@ -88,16 +101,38 @@ function selectedNetworkInfo() {
   return networks.value.find(n => n.network === selectedNetwork.value) || null
 }
 
-function applyCouponCode() {
+async function applyCouponCode() {
   if (!normalizedCouponCode.value) return
-  appliedCouponCode.value = normalizedCouponCode.value
-  couponCode.value = normalizedCouponCode.value
+  if (!order.value?.product_id || order.value.price_amount == null) return
+  couponApplying.value = true
   payError.value = ''
+  try {
+    const result = await preApplyCoupon(normalizedCouponCode.value, {
+      productId: order.value.product_id,
+      originalAmount: order.value.price_amount
+    })
+    const finalAmount = Number(result?.final_amount ?? order.value.price_amount)
+    couponPreview.value = {
+      ...result,
+      final_amount: finalAmount,
+      discount_amount: Math.max(0, Number(order.value.price_amount) - finalAmount)
+    }
+    appliedCouponCode.value = normalizedCouponCode.value
+    couponCode.value = normalizedCouponCode.value
+  } catch (err) {
+    appliedCouponCode.value = ''
+    couponPreview.value = null
+    payError.value = err.message || t('checkout.couponApplyFailed')
+  } finally {
+    couponApplying.value = false
+  }
 }
 
 function clearCouponCode() {
   couponCode.value = ''
   appliedCouponCode.value = ''
+  couponPreview.value = null
+  payError.value = ''
 }
 
 // ── Pay button ──
@@ -105,7 +140,8 @@ async function handlePay() {
   if (paymentStarting.value || (!selectedNetwork.value && !normalizedCouponCode.value)) return
   payError.value = ''
   if (normalizedCouponCode.value && !couponApplied.value) {
-    applyCouponCode()
+    await applyCouponCode()
+    if (!couponApplied.value) return
   }
   paymentStarting.value = true
 
@@ -283,7 +319,10 @@ function goBack() {
           </div>
           <div class="summary-item amount-item">
             <span class="summary-label">{{ t('crypto.amount') }}</span>
-            <span class="summary-value amount-value">{{ formatUSDT(order.price_amount) }} USDT</span>
+            <span class="summary-value amount-value">{{ formatUSDT(payableAmount) }} USDT</span>
+            <span v-if="hasDiscount" class="summary-discount">
+              {{ t('checkout.discount') }} -{{ formatUSDT(couponDiscountAmount) }} USDT
+            </span>
           </div>
         </div>
 
@@ -306,6 +345,7 @@ function goBack() {
                   class="coupon-input"
                   :placeholder="t('checkout.activationCodePlaceholder')"
                   autocomplete="off"
+                  :disabled="couponApplying"
                   @keyup.enter="applyCouponCode"
                 />
                 <button
@@ -324,12 +364,19 @@ function goBack() {
                 :disabled="!canApplyCoupon"
                 @click="applyCouponCode"
               >
-                {{ couponApplied ? t('checkout.couponApplied') : t('checkout.applyCoupon') }}
+                {{ couponApplying ? t('checkout.applyingCoupon') : (couponApplied ? t('checkout.couponApplied') : t('checkout.applyCoupon')) }}
               </button>
             </div>
             <p v-if="couponApplied" class="coupon-status">
               {{ t('checkout.couponAppliedCode', { code: appliedCouponCode }) }}
+              <span v-if="hasDiscount">
+                {{ t('checkout.couponDiscountSummary', {
+                  discount: `${formatUSDT(couponDiscountAmount)} USDT`,
+                  amount: `${formatUSDT(payableAmount)} USDT`
+                }) }}
+              </span>
             </p>
+            <p v-else-if="payError && normalizedCouponCode" class="coupon-error">{{ payError }}</p>
           </div>
 
           <div class="network-grid">
@@ -366,7 +413,7 @@ function goBack() {
                 <span>
                   {{ paymentStarting
                     ? t('checkout.processingPayment')
-                    : t('crypto.payAmount', { amount: formatUSDT(order.price_amount) })
+                    : t('crypto.payAmount', { amount: formatUSDT(payableAmount) })
                   }}
                 </span>
               </span>
@@ -412,7 +459,7 @@ function goBack() {
               <div class="detail-row amount-row">
                 <span class="detail-label">{{ t('crypto.amountLabel') }}</span>
                 <span class="detail-value amount-large">
-                  {{ chargeResult?.crypto?.amount_usdt || formatUSDT(order.price_amount) }}
+                  {{ chargeResult?.crypto?.amount_usdt || formatUSDT(payableAmount) }}
                   <span class="usdt-badge">USDT</span>
                 </span>
               </div>
@@ -574,6 +621,12 @@ function goBack() {
   color: #26a17b;
 }
 
+.summary-discount {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--success);
+}
+
 /* ─── Step Card ─── */
 .step-card {
   padding: 1.5rem;
@@ -721,6 +774,20 @@ function goBack() {
 .coupon-status {
   margin: 0;
   color: var(--success);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.coupon-status span {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.coupon-error {
+  margin: 0;
+  color: var(--danger);
   font-size: 0.8rem;
   font-weight: 600;
 }
