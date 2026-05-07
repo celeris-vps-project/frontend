@@ -40,9 +40,10 @@ export async function getPaymentProviders() {
  */
 export async function preApplyCoupon(couponCode, { productId, originalAmount }) {
   const code = String(couponCode || '').trim()
-  const res = await request('POST', `/api/v1/coupons/${encodeURIComponent(code)}/pre/applied`, {
+  const res = await request('POST', `/api/v1/coupons/pre/applied`, {
     product_id: productId,
-    original_amount: Number(originalAmount)
+    original_amount: Number(originalAmount),
+    code: encodeURIComponent(code),
   })
   return res.data
 }
