@@ -191,6 +191,11 @@ export async function createConsoleSession(id) {
   return res.data
 }
 
+export async function getConsoleSession(id, sessionID) {
+  const res = await request('GET', `/api/v1/instances/${id}/console-session/${sessionID}`, null, true, 5_000)
+  return res.data
+}
+
 // POST /instances/:id/suspend
 export async function suspendInstance(id) {
   const res = await request('POST', `/api/v1/instances/${id}/suspend`)

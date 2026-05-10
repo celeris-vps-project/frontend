@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import RFB from '@novnc/novnc'
-import { createConsoleSession, getInstance } from '../api/billing.js'
+import { createConsoleSession, getConsoleSession, getInstance } from '../api/billing.js'
 import { instanceConsoleWsUrl } from '../api/ws'
 
 const route = useRoute()
@@ -25,6 +25,7 @@ let connectGeneration = 0
 const MAX_RECONNECT_ATTEMPTS = 10
 const INITIAL_RECONNECT_DELAY = 1000
 const MAX_RECONNECT_DELAY = 10000
+const TICKET_POLL_INTERVAL = 1000
 
 const queryVmName = computed(() => (
   typeof route.query.vmname === 'string' ? route.query.vmname : ''
@@ -61,7 +62,7 @@ async function connectConsole({ resetAttempts = false, fromReconnect = false } =
   try {
     instance.value = await getInstance(route.params.id)
     const session = await createConsoleSession(route.params.id)
-    const vncPassword = session.vnc_ticket
+    const vncPassword = await waitForVncTicket(session)
     if (!vncPassword) {
       throw new Error('missing console VNC ticket')
     }
@@ -84,6 +85,12 @@ async function connectConsole({ resetAttempts = false, fromReconnect = false } =
       reconnecting.value = false
       error.value = ''
       reconnectAttempt.value = 0
+      requestAnimationFrame(() => {
+        if (rfb === nextRfb) {
+          nextRfb.focus()
+          window.dispatchEvent(new Event('resize'))
+        }
+      })
     })
     nextRfb.addEventListener('disconnect', () => {
       if (rfb !== nextRfb) return
@@ -99,6 +106,10 @@ async function connectConsole({ resetAttempts = false, fromReconnect = false } =
       error.value = t('instanceDetail.consoleAuthRequired')
       disconnectConsole()
     })
+    nextRfb.addEventListener('securityfailure', (event) => {
+      if (rfb !== nextRfb) return
+      error.value = event.detail?.reason || t('instanceDetail.consoleFailed')
+    })
   } catch (err) {
     if (closedByUser || generation !== connectGeneration) return
     error.value = err.message
@@ -110,6 +121,28 @@ async function connectConsole({ resetAttempts = false, fromReconnect = false } =
       loading.value = false
     }
   }
+}
+
+async function waitForVncTicket(session) {
+  if (session?.vnc_ticket) return session.vnc_ticket
+  const expiresAt = Date.parse(session?.expires_at || '')
+  const fallbackDeadline = Date.now() + 60_000
+  const deadline = Number.isFinite(expiresAt) && expiresAt > Date.now()
+    ? Math.min(expiresAt - 1000, fallbackDeadline)
+    : fallbackDeadline
+
+  while (Date.now() < deadline) {
+    await delay(TICKET_POLL_INTERVAL)
+    const current = await getConsoleSession(route.params.id, session.session_id)
+    if (current?.vnc_ticket) {
+      return current.vnc_ticket
+    }
+  }
+  throw new Error(t('instanceDetail.consoleTicketTimeout'))
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function disconnectConsole() {
@@ -153,6 +186,13 @@ function retryConsole() {
   connectConsole({ resetAttempts: true })
 }
 
+function sendCtrlAltDel() {
+  if (rfb && connected.value) {
+    rfb.sendCtrlAltDel()
+    rfb.focus()
+  }
+}
+
 function closeWindow() {
   closedByUser = true
   clearReconnectTimer()
@@ -176,7 +216,10 @@ function closeWindow() {
           <span class="state-dot"></span>
           {{ statusLabel }}
         </span>
-        <button v-if="error" class="toolbar-btn" @click="retryConsole">{{ t('common.retry') }}</button>
+        <button v-if="connected" class="toolbar-btn" @click="sendCtrlAltDel">{{ t('instanceDetail.consoleCtrlAltDel') }}</button>
+        <button v-if="!loading && !reconnecting" class="toolbar-btn" @click="retryConsole">
+          {{ connected ? t('instanceDetail.consoleReconnect') : t('common.retry') }}
+        </button>
         <button class="toolbar-btn" @click="closeWindow">{{ t('common.back') }}</button>
       </div>
     </header>
@@ -199,14 +242,16 @@ function closeWindow() {
 
 <style scoped>
 .console-window {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: #07090d;
   color: #e5e7eb;
 }
 
 .console-toolbar {
+  flex: 0 0 auto;
   min-height: 56px;
   display: flex;
   align-items: center;
@@ -299,8 +344,12 @@ function closeWindow() {
 .console-surface {
   width: 100%;
   height: 100%;
-  min-height: calc(100vh - 56px);
   outline: none;
+}
+
+.console-surface :deep(div) {
+  width: 100%;
+  height: 100%;
 }
 
 .console-surface :deep(canvas) {
