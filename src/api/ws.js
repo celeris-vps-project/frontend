@@ -26,6 +26,10 @@ function wsBaseUrl() {
   return httpBase.replace(/^http/, 'ws')
 }
 
+export function instanceConsoleWsUrl(ticket) {
+  return `${wsBaseUrl()}/api/v1/instances/console?ticket=${encodeURIComponent(ticket)}`
+}
+
 /**
  * Connect to the admin node-status WebSocket.
  * Returns reactive state that is kept up-to-date automatically.

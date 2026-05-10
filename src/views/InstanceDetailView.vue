@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '../components/AppLayout.vue'
@@ -7,6 +7,7 @@ import StatusBadge from '../components/StatusBadge.vue'
 import {
   getInstance,
   getInstanceTrafficUsage,
+  createConsoleSession,
   startInstance,
   stopInstance,
   suspendInstance,
@@ -14,7 +15,7 @@ import {
   terminateInstance,
   formatDateTime
 } from '../api/billing.js'
-import { useInstanceStatusWS } from '../api/ws'
+import { useInstanceStatusWS, instanceConsoleWsUrl } from '../api/ws'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,10 +30,17 @@ const actionLoading = ref('')
 const actionError = ref('')
 const actionSuccess = ref('')
 const showTerminateConfirm = ref(false)
+const consoleLoading = ref(false)
+const consoleConnected = ref(false)
+const consoleError = ref('')
+const consoleMessages = ref([])
+const consoleContainer = ref(null)
+let consoleRfb = null
 
 const { instanceStates, connected } = useInstanceStatusWS()
 
 onMounted(fetchInstance)
+onUnmounted(closeConsole)
 
 async function fetchInstance() {
   loading.value = true
@@ -81,13 +89,19 @@ async function doAction(actionFn, actionKey) {
 }
 
 const canStart = computed(() => {
-  return liveInstance.value && isControlActive(liveInstance.value) && liveInstance.value.status === 'stopped'
+  return hasRuntimeState(liveInstance.value) && isControlActive(liveInstance.value) && liveInstance.value.status === 'stopped'
 })
 
-const canStop = computed(() => liveInstance.value?.status === 'running' && isControlActive(liveInstance.value))
+const canStop = computed(() => hasRuntimeState(liveInstance.value) && liveInstance.value?.status === 'running' && isControlActive(liveInstance.value))
 const canSuspend = computed(() => liveInstance.value && isControlActive(liveInstance.value) && liveInstance.value.status !== 'provisioning')
 const canUnsuspend = computed(() => controlStatus(liveInstance.value) === 'suspended')
 const canTerminate = computed(() => liveInstance.value && controlStatus(liveInstance.value) !== 'terminated')
+const canOpenConsole = computed(() => hasRuntimeState(liveInstance.value) && liveInstance.value?.status === 'running' && isControlActive(liveInstance.value))
+const runtimeGateLabel = computed(() => hasRuntimeState(liveInstance.value) ? '' : t('instanceDetail.runtimeUnavailable'))
+
+function hasRuntimeState(inst) {
+  return Boolean(inst?.runtime_reported)
+}
 
 const timelineRows = computed(() => {
   if (!liveInstance.value) return []
@@ -298,6 +312,69 @@ function refreshTrafficUsage() {
     .finally(() => {
       trafficLoading.value = false
     })
+}
+
+async function openConsole() {
+  if (!canOpenConsole.value || consoleLoading.value) return
+  closeConsole()
+  consoleLoading.value = true
+  consoleError.value = ''
+  consoleMessages.value = []
+  try {
+    const session = await createConsoleSession(route.params.id)
+    await nextTick()
+    const { RFB } = await loadNoVnc()
+    const wsUrl = instanceConsoleWsUrl(session.ticket)
+    consoleRfb = new RFB(consoleContainer.value, wsUrl, {
+      credentials: { password: '' }
+    })
+    consoleRfb.scaleViewport = true
+    consoleRfb.resizeSession = true
+    consoleRfb.viewOnly = false
+    consoleRfb.addEventListener('connect', () => {
+      consoleConnected.value = true
+      consoleMessages.value.push(t('instanceDetail.consoleConnected'))
+    })
+    consoleRfb.addEventListener('disconnect', () => {
+      consoleConnected.value = false
+      consoleRfb = null
+      consoleMessages.value.push(t('instanceDetail.consoleDisconnected'))
+    })
+    consoleRfb.addEventListener('credentialsrequired', () => {
+      consoleError.value = t('instanceDetail.consoleAuthRequired')
+    })
+  } catch (err) {
+    consoleError.value = err.message
+  } finally {
+    consoleLoading.value = false
+  }
+}
+
+function closeConsole() {
+  if (consoleRfb) {
+    consoleRfb.disconnect()
+    consoleRfb = null
+  }
+  consoleConnected.value = false
+}
+
+async function loadNoVnc() {
+  if (window.__celerisNoVnc) return window.__celerisNoVnc
+  const urls = [
+    'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.5.0/core/rfb.js',
+    'https://unpkg.com/@novnc/novnc@1.5.0/core/rfb.js'
+  ]
+  let lastError = null
+  for (const url of urls) {
+    try {
+      const mod = await import(/* @vite-ignore */ url)
+      window.__celerisNoVnc = mod
+      return mod
+    } catch (err) {
+      lastError = err
+    }
+  }
+  throw lastError || new Error('failed to load noVNC')
 }
 </script>
 
@@ -595,9 +672,24 @@ function refreshTrafficUsage() {
           <div class="detail-sidebar">
             <section class="actions-card glass-card">
               <h3>{{ t('instanceDetail.powerControl') }}</h3>
+              <p v-if="runtimeGateLabel" class="action-note">{{ runtimeGateLabel }}</p>
               <div class="power-btns">
                 <button
-                  v-if="canStart"
+                  v-if="!hasRuntimeState(liveInstance) && isControlActive(liveInstance) && liveInstance.status !== 'running'"
+                  class="action-btn success-btn"
+                  disabled
+                >
+                  {{ t('instanceDetail.start') }}
+                </button>
+                <button
+                  v-if="!hasRuntimeState(liveInstance) && isControlActive(liveInstance) && liveInstance.status !== 'stopped'"
+                  class="action-btn warning-btn"
+                  disabled
+                >
+                  {{ t('instanceDetail.stop') }}
+                </button>
+                <button
+                  v-if="canStart && hasRuntimeState(liveInstance)"
                   class="action-btn success-btn"
                   :disabled="actionLoading !== ''"
                   @click="doAction(startInstance, 'start')"
@@ -605,7 +697,7 @@ function refreshTrafficUsage() {
                   {{ actionLoading === 'start' ? t('instanceDetail.starting') : t('instanceDetail.start') }}
                 </button>
                 <button
-                  v-if="canStop"
+                  v-if="canStop && hasRuntimeState(liveInstance)"
                   class="action-btn warning-btn"
                   :disabled="actionLoading !== ''"
                   @click="doAction(stopInstance, 'stop')"
@@ -643,6 +735,38 @@ function refreshTrafficUsage() {
                   >
                     {{ actionLoading === 'terminate' ? t('instanceDetail.terminating') : t('instanceDetail.confirmTerminate') }}
                   </button>
+                </div>
+              </div>
+            </section>
+
+            <section class="actions-card glass-card">
+              <h3>{{ t('instanceDetail.console') }}</h3>
+              <p class="action-note">{{ t('instanceDetail.consoleHint') }}</p>
+              <div class="power-btns">
+                <button
+                  class="action-btn secondary-btn"
+                  :disabled="!canOpenConsole || consoleLoading || consoleConnected"
+                  @click="openConsole"
+                >
+                  {{ consoleLoading ? t('instanceDetail.consoleConnecting') : t('instanceDetail.openConsole') }}
+                </button>
+                <button
+                  class="action-btn danger-btn"
+                  :disabled="!consoleConnected"
+                  @click="closeConsole"
+                >
+                  {{ t('instanceDetail.closeConsole') }}
+                </button>
+              </div>
+              <p v-if="!canOpenConsole" class="action-note">{{ t('instanceDetail.consoleUnavailable') }}</p>
+              <p v-if="consoleError" class="console-error">{{ consoleError }}</p>
+              <div class="console-frame">
+                <div ref="consoleContainer" class="console-canvas"></div>
+                <div class="console-status" :class="{ connected: consoleConnected }">
+                  {{ consoleConnected ? t('instanceDetail.consoleConnected') : t('instanceDetail.consoleIdle') }}
+                </div>
+                <div class="console-log">
+                  <p v-for="(msg, index) in consoleMessages.slice(-4)" :key="index">{{ msg }}</p>
                 </div>
               </div>
             </section>
@@ -922,6 +1046,13 @@ function refreshTrafficUsage() {
   margin: 0 0 1rem;
   font-size: 1rem;
   color: var(--text-primary);
+}
+
+.action-note {
+  margin: -0.35rem 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .section-header-row {
@@ -1263,6 +1394,52 @@ function refreshTrafficUsage() {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+}
+
+.console-frame {
+  margin-top: 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #111318;
+}
+
+.console-canvas {
+  min-height: 320px;
+  aspect-ratio: 16 / 10;
+  background: #090b0f;
+}
+
+.console-status {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.console-status.connected {
+  color: var(--success);
+}
+
+.console-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.console-log p {
+  margin: 0;
+}
+
+.console-error {
+  margin: 0.5rem 0 0;
+  color: var(--danger);
+  font-size: 0.8rem;
 }
 
 .terminate-section {
