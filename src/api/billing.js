@@ -187,7 +187,7 @@ export async function reinstallInstance(id) {
 
 // POST /instances/:id/console-session
 export async function createConsoleSession(id) {
-  const res = await request('POST', `/api/v1/instances/${id}/console-session`)
+  const res = await request('POST', `/api/v1/instances/${id}/console-session`, null, true, 30_000)
   return res.data
 }
 

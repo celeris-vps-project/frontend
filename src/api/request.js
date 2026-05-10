@@ -56,9 +56,10 @@ function delay(ms) {
  * @param {string} path   - e.g. '/api/v1/admin/products'
  * @param {object|null} body
  * @param {boolean} auth  - whether to attach the Bearer token (default true)
+ * @param {number} timeoutMs - request timeout in milliseconds
  * @returns {Promise<any>} parsed JSON body
  */
-export async function request(method, path, body = null, auth = true) {
+export async function request(method, path, body = null, auth = true, timeoutMs = REQUEST_TIMEOUT) {
     const toast = useToast()
     const apiStatus = useApiStatus()
     const headers = auth ? authHeaders() : { 'Content-Type': 'application/json' }
@@ -75,7 +76,7 @@ export async function request(method, path, body = null, auth = true) {
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
-            response = await fetchWithTimeout(url, opts, REQUEST_TIMEOUT)
+            response = await fetchWithTimeout(url, opts, timeoutMs)
 
             // If we get a response, backend is reachable
             apiStatus.setOnline()

@@ -329,8 +329,12 @@ async function openConsole() {
     const session = await createConsoleSession(route.params.id)
     await nextTick()
     const wsUrl = instanceConsoleWsUrl(session.ticket)
+    const vncPassword = session.vnc_ticket
+    if (!vncPassword) {
+      throw new Error('missing console VNC ticket')
+    }
     consoleRfb = new RFB(consoleContainer.value, wsUrl, {
-      credentials: { password: '' }
+      credentials: { password: vncPassword }
     })
     consoleRfb.scaleViewport = true
     consoleRfb.resizeSession = true
