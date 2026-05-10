@@ -5,6 +5,7 @@ import ForgotPasswordView from '../views/ForgotPasswordView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import InstancesView from '../views/InstancesView.vue'
 import InstanceDetailView from '../views/InstanceDetailView.vue'
+import InstanceConsoleView from '../views/InstanceConsoleView.vue'
 import NewInstanceView from '../views/NewInstanceView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
 import CryptoPaymentView from '../views/CryptoPaymentView.vue'
@@ -59,6 +60,7 @@ const routes = [
   { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { auth: true } },
   { path: '/instances', name: 'instances', component: InstancesView, meta: { auth: true } },
   { path: '/instances/new', name: 'new-instance', component: NewInstanceView, meta: { auth: true } },
+  { path: '/instances/:id/console', name: 'instance-console', component: InstanceConsoleView, meta: { auth: true } },
   { path: '/instances/:id', name: 'instance-detail', component: InstanceDetailView, meta: { auth: true } },
   { path: '/orders/:id/checkout', name: 'checkout', component: CheckoutView, meta: { auth: true } },
   { path: '/orders/:id/pay', name: 'crypto-payment', component: CryptoPaymentView, meta: { auth: true } },

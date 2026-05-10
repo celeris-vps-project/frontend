@@ -1,14 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import RFB from '@novnc/novnc'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import {
   getInstance,
   getInstanceTrafficUsage,
-  createConsoleSession,
   startInstance,
   stopInstance,
   reinstallInstance,
@@ -17,7 +15,7 @@ import {
   terminateInstance,
   formatDateTime
 } from '../api/billing.js'
-import { useInstanceStatusWS, instanceConsoleWsUrl } from '../api/ws'
+import { useInstanceStatusWS } from '../api/ws'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,17 +31,11 @@ const actionError = ref('')
 const actionSuccess = ref('')
 const showReinstallConfirm = ref(false)
 const showTerminateConfirm = ref(false)
-const consoleLoading = ref(false)
-const consoleConnected = ref(false)
 const consoleError = ref('')
-const consoleMessages = ref([])
-const consoleContainer = ref(null)
-let consoleRfb = null
 
 const { instanceStates, connected } = useInstanceStatusWS()
 
 onMounted(fetchInstance)
-onUnmounted(closeConsole)
 
 async function fetchInstance() {
   loading.value = true
@@ -319,51 +311,28 @@ function refreshTrafficUsage() {
     })
 }
 
-async function openConsole() {
-  if (!canOpenConsole.value || consoleLoading.value) return
-  closeConsole()
-  consoleLoading.value = true
+function openConsole() {
+  if (!canOpenConsole.value) return
   consoleError.value = ''
-  consoleMessages.value = []
-  try {
-    const session = await createConsoleSession(route.params.id)
-    await nextTick()
-    const wsUrl = instanceConsoleWsUrl(session.ticket)
-    const vncPassword = session.vnc_ticket
-    if (!vncPassword) {
-      throw new Error('missing console VNC ticket')
+  const target = router.resolve({
+    name: 'instance-console',
+    params: { id: route.params.id },
+    query: {
+      vmname: liveInstance.value?.hostname,
+      resize: 'off'
     }
-    consoleRfb = new RFB(consoleContainer.value, wsUrl, {
-      credentials: { password: vncPassword }
-    })
-    consoleRfb.scaleViewport = true
-    consoleRfb.resizeSession = true
-    consoleRfb.viewOnly = false
-    consoleRfb.addEventListener('connect', () => {
-      consoleConnected.value = true
-      consoleMessages.value.push(t('instanceDetail.consoleConnected'))
-    })
-    consoleRfb.addEventListener('disconnect', () => {
-      consoleConnected.value = false
-      consoleRfb = null
-      consoleMessages.value.push(t('instanceDetail.consoleDisconnected'))
-    })
-    consoleRfb.addEventListener('credentialsrequired', () => {
-      consoleError.value = t('instanceDetail.consoleAuthRequired')
-    })
-  } catch (err) {
-    consoleError.value = err.message
-  } finally {
-    consoleLoading.value = false
+  })
+  const windowName = `celeris_console_${String(route.params.id).replace(/[^a-zA-Z0-9_]/g, '_')}`
+  const popup = window.open(
+    target.href,
+    windowName,
+    'width=1280,height=820,resizable=yes,scrollbars=no'
+  )
+  if (!popup) {
+    consoleError.value = t('instanceDetail.consoleWindowBlocked')
+    return
   }
-}
-
-function closeConsole() {
-  if (consoleRfb) {
-    consoleRfb.disconnect()
-    consoleRfb = null
-  }
-  consoleConnected.value = false
+  popup.focus()
 }
 </script>
 
@@ -750,30 +719,14 @@ function closeConsole() {
               <div class="power-btns">
                 <button
                   class="action-btn secondary-btn"
-                  :disabled="!canOpenConsole || consoleLoading || consoleConnected"
+                  :disabled="!canOpenConsole"
                   @click="openConsole"
                 >
-                  {{ consoleLoading ? t('instanceDetail.consoleConnecting') : t('instanceDetail.openConsole') }}
-                </button>
-                <button
-                  class="action-btn danger-btn"
-                  :disabled="!consoleConnected"
-                  @click="closeConsole"
-                >
-                  {{ t('instanceDetail.closeConsole') }}
+                  {{ t('instanceDetail.openConsole') }}
                 </button>
               </div>
               <p v-if="!canOpenConsole" class="action-note">{{ t('instanceDetail.consoleUnavailable') }}</p>
               <p v-if="consoleError" class="console-error">{{ consoleError }}</p>
-              <div class="console-frame">
-                <div ref="consoleContainer" class="console-canvas"></div>
-                <div class="console-status" :class="{ connected: consoleConnected }">
-                  {{ consoleConnected ? t('instanceDetail.consoleConnected') : t('instanceDetail.consoleIdle') }}
-                </div>
-                <div class="console-log">
-                  <p v-for="(msg, index) in consoleMessages.slice(-4)" :key="index">{{ msg }}</p>
-                </div>
-              </div>
             </section>
 
             <section class="info-card glass-card">
@@ -1399,46 +1352,6 @@ function closeConsole() {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-}
-
-.console-frame {
-  margin-top: 0.9rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  overflow: hidden;
-  background: #111318;
-}
-
-.console-canvas {
-  min-height: 320px;
-  aspect-ratio: 16 / 10;
-  background: #090b0f;
-}
-
-.console-status {
-  padding: 0.55rem 0.75rem;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.console-status.connected {
-  color: var(--success);
-}
-
-.console-log {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.65rem 0.75rem;
-  font-size: 0.76rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border-subtle);
-}
-
-.console-log p {
-  margin: 0;
 }
 
 .console-error {
