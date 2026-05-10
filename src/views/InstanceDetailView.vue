@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import RFB from '@novnc/novnc'
 import AppLayout from '../components/AppLayout.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import {
@@ -10,6 +11,7 @@ import {
   createConsoleSession,
   startInstance,
   stopInstance,
+  reinstallInstance,
   suspendInstance,
   unsuspendInstance,
   terminateInstance,
@@ -29,6 +31,7 @@ const trafficError = ref('')
 const actionLoading = ref('')
 const actionError = ref('')
 const actionSuccess = ref('')
+const showReinstallConfirm = ref(false)
 const showTerminateConfirm = ref(false)
 const consoleLoading = ref(false)
 const consoleConnected = ref(false)
@@ -80,6 +83,7 @@ async function doAction(actionFn, actionKey) {
   try {
     instance.value = await actionFn(route.params.id)
     actionSuccess.value = t(`instanceDetail.${actionKey}Submitted`)
+    showReinstallConfirm.value = false
     showTerminateConfirm.value = false
   } catch (err) {
     actionError.value = err.message
@@ -95,6 +99,7 @@ const canStart = computed(() => {
 const canStop = computed(() => hasRuntimeState(liveInstance.value) && liveInstance.value?.status === 'running' && isControlActive(liveInstance.value))
 const canSuspend = computed(() => liveInstance.value && isControlActive(liveInstance.value) && liveInstance.value.status !== 'provisioning')
 const canUnsuspend = computed(() => controlStatus(liveInstance.value) === 'suspended')
+const canReinstall = computed(() => liveInstance.value && isControlActive(liveInstance.value) && Boolean(liveInstance.value.node_id))
 const canTerminate = computed(() => liveInstance.value && controlStatus(liveInstance.value) !== 'terminated')
 const canOpenConsole = computed(() => hasRuntimeState(liveInstance.value) && liveInstance.value?.status === 'running' && isControlActive(liveInstance.value))
 const runtimeGateLabel = computed(() => hasRuntimeState(liveInstance.value) ? '' : t('instanceDetail.runtimeUnavailable'))
@@ -323,7 +328,6 @@ async function openConsole() {
   try {
     const session = await createConsoleSession(route.params.id)
     await nextTick()
-    const { RFB } = await loadNoVnc()
     const wsUrl = instanceConsoleWsUrl(session.ticket)
     consoleRfb = new RFB(consoleContainer.value, wsUrl, {
       credentials: { password: '' }
@@ -356,25 +360,6 @@ function closeConsole() {
     consoleRfb = null
   }
   consoleConnected.value = false
-}
-
-async function loadNoVnc() {
-  if (window.__celerisNoVnc) return window.__celerisNoVnc
-  const urls = [
-    'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.5.0/core/rfb.js',
-    'https://unpkg.com/@novnc/novnc@1.5.0/core/rfb.js'
-  ]
-  let lastError = null
-  for (const url of urls) {
-    try {
-      const mod = await import(/* @vite-ignore */ url)
-      window.__celerisNoVnc = mod
-      return mod
-    } catch (err) {
-      lastError = err
-    }
-  }
-  throw lastError || new Error('failed to load noVNC')
 }
 </script>
 
@@ -720,6 +705,22 @@ async function loadNoVnc() {
                 >
                   {{ actionLoading === 'unsuspend' ? t('instanceDetail.unsuspending') : t('instanceDetail.unsuspend') }}
                 </button>
+              </div>
+
+              <div v-if="canReinstall" class="reinstall-section">
+                <button class="action-btn warning-btn" @click="showReinstallConfirm = !showReinstallConfirm">
+                  {{ t('instanceDetail.reinstallSystem') }}
+                </button>
+                <div v-if="showReinstallConfirm" class="confirm-box">
+                  <p class="confirm-text">{{ t('instanceDetail.reinstallWarning') }}</p>
+                  <button
+                    class="action-btn danger-btn small-btn"
+                    :disabled="actionLoading !== ''"
+                    @click="doAction(reinstallInstance, 'reinstall')"
+                  >
+                    {{ actionLoading === 'reinstall' ? t('instanceDetail.reinstalling') : t('instanceDetail.confirmReinstall') }}
+                  </button>
+                </div>
               </div>
 
               <div v-if="canTerminate" class="terminate-section">
@@ -1442,6 +1443,7 @@ async function loadNoVnc() {
   font-size: 0.8rem;
 }
 
+.reinstall-section,
 .terminate-section {
   border-top: 1px solid var(--divider);
   padding-top: 0.85rem;

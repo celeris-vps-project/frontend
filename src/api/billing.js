@@ -179,6 +179,12 @@ export async function stopInstance(id) {
   return res.data
 }
 
+// POST /instances/:id/reinstall
+export async function reinstallInstance(id) {
+  const res = await request('POST', `/api/v1/instances/${id}/reinstall`)
+  return res.data
+}
+
 // POST /instances/:id/console-session
 export async function createConsoleSession(id) {
   const res = await request('POST', `/api/v1/instances/${id}/console-session`)
